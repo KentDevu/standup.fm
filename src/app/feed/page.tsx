@@ -1,14 +1,14 @@
 "use client";
 
-import { Recorder } from "@/components/drop/recorder";
+import { FeedView } from "@/components/feed/feed-view";
 import { TopBar, BottomNav } from "@/components/layout/nav";
 
-export default function HomePage() {
+export default function FeedPage() {
   return (
     <>
       <TopBar />
       <main>
-        <Recorder />
+        <FeedView />
       </main>
       <BottomNav />
     </>

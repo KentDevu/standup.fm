@@ -1,14 +1,14 @@
 "use client";
 
-import { Recorder } from "@/components/drop/recorder";
+import { KickoffView } from "@/components/kickoff/kickoff-view";
 import { TopBar, BottomNav } from "@/components/layout/nav";
 
-export default function HomePage() {
+export default function KickoffPage() {
   return (
     <>
       <TopBar />
       <main>
-        <Recorder />
+        <KickoffView />
       </main>
       <BottomNav />
     </>

@@ -1,14 +1,14 @@
 "use client";
 
-import { Recorder } from "@/components/drop/recorder";
+import { PulseView } from "@/components/pulse/pulse-view";
 import { TopBar, BottomNav } from "@/components/layout/nav";
 
-export default function HomePage() {
+export default function PulsePage() {
   return (
     <>
       <TopBar />
       <main>
-        <Recorder />
+        <PulseView />
       </main>
       <BottomNav />
     </>
