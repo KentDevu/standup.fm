@@ -21,7 +21,7 @@ export function Sparkline({
 
   const points = data
     .map((d, i) => {
-      const x = (i / (data.length - 1)) * 100;
+      const x = data.length > 1 ? (i / (data.length - 1)) * 100 : 50;
       const y = height - ((d - min) / range) * height;
       return `${x},${y}`;
     })

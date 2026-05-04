@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { Drop } from "@/types";
 import { Avatar } from "@/components/ui/avatar";
@@ -25,6 +25,7 @@ export function DropCard({
         .map((e) => e.id) || []
     )
   );
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const hasUnresolved = drop.extractions?.some(
     (e) =>
@@ -32,9 +33,31 @@ export function DropCard({
       !resolvedIds.has(e.id)
   );
 
-  const handleResolve = (extractionId: string) => {
+  const handleResolve = async (extractionId: string) => {
     setResolvedIds((prev) => new Set([...prev, extractionId]));
+    try {
+      await fetch("/api/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ extraction_id: extractionId }),
+      });
+    } catch {
+      // already resolved in local state
+    }
   };
+
+  const togglePlay = useCallback(() => {
+    if (audioRef.current) {
+      if (playing) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play().catch(() => {
+          // audio file not available — just animate the waveform for demo
+        });
+      }
+    }
+    setPlaying(!playing);
+  }, [playing]);
 
   const timeAgo = formatDistanceToNow(new Date(drop.created_at), {
     addSuffix: true,
@@ -48,12 +71,22 @@ export function DropCard({
       className={`bg-midnight-light rounded-2xl border ${hasUnresolved ? "border-coral/20" : "border-white/5"} overflow-hidden`}
     >
       <div className="p-4">
+        {drop.audio_url && (
+          <audio
+            ref={audioRef}
+            src={drop.audio_url}
+            onEnded={() => setPlaying(false)}
+            onError={() => setPlaying(false)}
+            className="hidden"
+          />
+        )}
+
         <div className="flex items-start gap-3">
           <Avatar name={drop.user?.name || "?"} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-medium text-cream text-sm">
-                {drop.user?.name}
+                {drop.user?.name || "You"}
               </span>
               {hasUnresolved && (
                 <span className="w-2 h-2 rounded-full bg-coral animate-pulse" />
@@ -62,8 +95,12 @@ export function DropCard({
             <div className="flex items-center gap-2 text-xs text-cream-dim">
               <Clock size={10} />
               <span>{timeAgo}</span>
-              <span>·</span>
-              <span>{drop.user?.role}</span>
+              {drop.user?.role && (
+                <>
+                  <span>·</span>
+                  <span>{drop.user.role}</span>
+                </>
+              )}
             </div>
           </div>
           {drop.sentiment_score !== null && (
@@ -98,7 +135,7 @@ export function DropCard({
           <Waveform
             duration={drop.duration}
             isPlaying={playing}
-            onToggle={() => setPlaying(!playing)}
+            onToggle={togglePlay}
           />
         </div>
 
@@ -124,16 +161,18 @@ export function DropCard({
           {expanded ? "Hide transcript" : "Show transcript"}
         </button>
 
-        {expanded && drop.transcript && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="mt-3 text-sm text-cream/70 leading-relaxed border-l-2 border-coral/30 pl-3"
-          >
-            {drop.transcript}
-          </motion.div>
-        )}
+        <AnimatePresence>
+          {expanded && drop.transcript && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="mt-3 text-sm text-cream/70 leading-relaxed border-l-2 border-coral/30 pl-3"
+            >
+              {drop.transcript}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );

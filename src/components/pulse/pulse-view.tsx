@@ -1,11 +1,41 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, TrendingUp } from "lucide-react";
 import { Sparkline } from "@/components/ui/sparkline";
 import { mockPulseMetrics, mockInsights } from "@/lib/mock-data";
+import { PulseMetrics, AIInsight } from "@/types";
 
 export function PulseView() {
+  const [metrics, setMetrics] = useState<PulseMetrics>(mockPulseMetrics);
+  const [insights, setInsights] = useState<AIInsight[]>(mockInsights);
+
+  useEffect(() => {
+    async function fetchPulse() {
+      try {
+        const res = await fetch("/api/pulse");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.metrics) setMetrics(data.metrics);
+          if (data.insights?.length) setInsights(data.insights);
+        }
+      } catch {
+        // keep mock data
+      }
+    }
+    fetchPulse();
+  }, []);
+
+  const totalBlockers = metrics.blocker_frequency.reduce((a, b) => a + b, 0);
+  const avgResolution =
+    metrics.resolution_time.reduce((a, b) => a + b, 0) /
+    metrics.resolution_time.length;
+  const latestSentiment =
+    metrics.sentiment_trend[metrics.sentiment_trend.length - 1];
+  const firstSentiment = metrics.sentiment_trend[0];
+  const sentimentDelta = Math.round((latestSentiment - firstSentiment) * 100);
+
   return (
     <div className="pt-16 pb-20 px-4 max-w-lg mx-auto">
       <div className="mb-4">
@@ -15,9 +45,9 @@ export function PulseView() {
         </p>
       </div>
 
-      {mockInsights.length > 0 && (
+      {insights.length > 0 && (
         <div className="space-y-2 mb-6">
-          {mockInsights.map((insight, i) => (
+          {insights.map((insight, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, x: -20 }}
@@ -50,46 +80,40 @@ export function PulseView() {
 
       <div className="grid grid-cols-2 gap-3">
         <Sparkline
-          data={mockPulseMetrics.blocker_frequency}
+          data={metrics.blocker_frequency}
           color="coral"
           label="Blockers / Day"
           value={String(
-            mockPulseMetrics.blocker_frequency[
-              mockPulseMetrics.blocker_frequency.length - 1
-            ]
+            metrics.blocker_frequency[metrics.blocker_frequency.length - 1]
           )}
           unit="today"
         />
         <Sparkline
-          data={mockPulseMetrics.resolution_time}
+          data={metrics.resolution_time}
           color="amber"
           label="Resolution Time"
           value={
-            mockPulseMetrics.resolution_time[
-              mockPulseMetrics.resolution_time.length - 1
+            metrics.resolution_time[
+              metrics.resolution_time.length - 1
             ].toFixed(1)
           }
           unit="hrs avg"
         />
         <Sparkline
-          data={mockPulseMetrics.participation}
+          data={metrics.participation}
           color="mint"
           label="Participation"
           value={String(
-            mockPulseMetrics.participation[
-              mockPulseMetrics.participation.length - 1
-            ]
+            metrics.participation[metrics.participation.length - 1]
           )}
           unit="% today"
         />
         <Sparkline
-          data={mockPulseMetrics.sentiment_trend}
+          data={metrics.sentiment_trend}
           color="blue"
           label="Sentiment"
           value={Math.round(
-            mockPulseMetrics.sentiment_trend[
-              mockPulseMetrics.sentiment_trend.length - 1
-            ] * 100
+            metrics.sentiment_trend[metrics.sentiment_trend.length - 1] * 100
           ).toString()}
           unit="% positive"
         />
@@ -99,21 +123,29 @@ export function PulseView() {
         <h3 className="text-sm font-medium mb-3">This Week Summary</h3>
         <div className="space-y-2 text-sm text-cream/70">
           <p>
-            <span className="text-coral font-medium">7 blockers</span> raised,{" "}
-            <span className="text-mint font-medium">5 resolved</span>
+            <span className="text-coral font-medium">
+              {totalBlockers} blockers
+            </span>{" "}
+            raised
           </p>
           <p>
             Average resolution time:{" "}
-            <span className="font-mono text-cream">4.1 hrs</span>
+            <span className="font-mono text-cream">
+              {avgResolution.toFixed(1)} hrs
+            </span>
           </p>
           <p>
             Team mood trending{" "}
-            <span className="text-mint font-medium">up 8%</span> from last
-            week
-          </p>
-          <p>
-            <span className="font-medium text-cream">Marco</span> was the top
-            unblocker this week 🏆
+            <span
+              className={
+                sentimentDelta >= 0
+                  ? "text-mint font-medium"
+                  : "text-coral font-medium"
+              }
+            >
+              {sentimentDelta >= 0 ? "up" : "down"} {Math.abs(sentimentDelta)}%
+            </span>{" "}
+            from start of week
           </p>
         </div>
       </div>

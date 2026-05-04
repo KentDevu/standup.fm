@@ -47,7 +47,7 @@ export function TagChip({
     >
       <span>{config.emoji}</span>
       <span className="max-w-[200px] truncate">{content}</span>
-      {type === "blocker" && !resolved && onResolve && (
+      {(type === "blocker" || type === "ask") && !resolved && onResolve && (
         <button
           onClick={onResolve}
           className="ml-1 px-2 py-0.5 bg-mint/20 text-mint rounded-full text-[10px] font-bold hover:bg-mint/30 transition-colors"

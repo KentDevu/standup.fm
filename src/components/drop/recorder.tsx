@@ -1,112 +1,30 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
-import { Mic, Square, RotateCcw, Send } from "lucide-react";
+import { Mic, Square, RotateCcw, Send, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LiveWaveform } from "@/components/ui/waveform";
-
-type RecordingState = "idle" | "countdown" | "recording" | "preview";
+import { TagChip } from "@/components/ui/tag-chip";
+import { useRecorder } from "@/hooks/use-recorder";
+import { ExtractionType } from "@/types";
 
 const PROMPTS = ["Yesterday", "Today", "Blockers", "Asks"];
-const MAX_DURATION = 90;
 
 export function Recorder() {
-  const [state, setState] = useState<RecordingState>("idle");
-  const [countdown, setCountdown] = useState(3);
-  const [elapsed, setElapsed] = useState(0);
-  const [transcript, setTranscript] = useState("");
-  const [processing, setProcessing] = useState(false);
-  const [dropped, setDropped] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const {
+    state,
+    countdown,
+    elapsed,
+    transcript,
+    extractions,
+    processingStep,
+    maxDuration,
+    startCountdown,
+    stopRecording,
+    processAndDrop,
+    reset,
+  } = useRecorder();
 
-  const startCountdown = useCallback(() => {
-    setState("countdown");
-    setCountdown(3);
-    let c = 3;
-    const interval = setInterval(() => {
-      c--;
-      if (c === 0) {
-        clearInterval(interval);
-        startRecording();
-      } else {
-        setCountdown(c);
-      }
-    }, 1000);
-  }, []);
-
-  const startRecording = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-
-      mediaRecorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-      };
-
-      mediaRecorder.start();
-      setState("recording");
-      setElapsed(0);
-
-      timerRef.current = setInterval(() => {
-        setElapsed((prev) => {
-          if (prev >= MAX_DURATION - 1) {
-            stopRecording();
-            return MAX_DURATION;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    } catch {
-      setState("idle");
-    }
-  }, []);
-
-  const stopRecording = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.stop();
-    }
-    setState("preview");
-    setProcessing(true);
-    setTimeout(() => {
-      setTranscript(
-        "Yesterday I shipped the login flow with OAuth. Today I'm refactoring the dashboard components. I'm blocked — the staging DB keeps throwing 500 errors and I need infra access. Marco, could you grant me staging credentials?"
-      );
-      setProcessing(false);
-    }, 2000);
-  }, []);
-
-  const handleDrop = useCallback(() => {
-    setDropped(true);
-    setTimeout(() => {
-      setState("idle");
-      setDropped(false);
-      setTranscript("");
-      setElapsed(0);
-    }, 2000);
-  }, []);
-
-  const handleReRecord = useCallback(() => {
-    setTranscript("");
-    setState("idle");
-    setElapsed(0);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
-
-  const progress = (elapsed / MAX_DURATION) * 100;
+  const progress = (elapsed / maxDuration) * 100;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] px-6">
@@ -137,9 +55,7 @@ export function Recorder() {
               </button>
             </div>
 
-            <p className="text-cream-dim text-sm">
-              Tap to drop your standup
-            </p>
+            <p className="text-cream-dim text-sm">Tap to drop your standup</p>
           </motion.div>
         )}
 
@@ -227,65 +143,116 @@ export function Recorder() {
             exit={{ opacity: 0, y: -20 }}
             className="flex flex-col items-center gap-6 w-full max-w-sm"
           >
-            {dropped ? (
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="text-center"
+            <h3 className="text-lg font-semibold">Preview your drop</h3>
+
+            <div className="w-full bg-midnight-light rounded-xl p-4 border border-white/5">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-coral" />
+                <span className="text-xs text-cream-dim font-mono">
+                  {elapsed}s recorded
+                </span>
+              </div>
+              <p className="text-xs text-cream-dim">
+                Audio captured. Tap &quot;Drop it&quot; to transcribe and process.
+              </p>
+            </div>
+
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={reset}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-white/10 text-cream-dim hover:text-cream hover:border-white/20 transition-colors"
               >
-                <div className="text-4xl mb-3">🎙️</div>
-                <h3 className="text-xl font-semibold text-mint">
-                  Drop saved.
-                </h3>
-                <p className="text-cream-dim text-sm mt-1">Go build.</p>
+                <RotateCcw size={16} />
+                <span className="text-sm font-medium">Re-record</span>
+              </button>
+              <button
+                onClick={processAndDrop}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-coral text-white font-medium hover:bg-coral-dark transition-colors"
+              >
+                <Send size={16} />
+                <span className="text-sm">Drop it</span>
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {state === "processing" && (
+          <motion.div
+            key="processing"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex flex-col items-center gap-6 w-full max-w-sm"
+          >
+            <Loader2 size={40} className="text-coral animate-spin" />
+            <div className="text-center">
+              <h3 className="text-lg font-semibold mb-1">Processing your drop</h3>
+              <p className="text-sm text-cream-dim">{processingStep}</p>
+            </div>
+
+            {transcript && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="w-full bg-midnight-light rounded-xl p-4 border border-white/5"
+              >
+                <p className="text-xs text-cream-dim mb-2 uppercase tracking-wider">
+                  Transcript
+                </p>
+                <p className="text-sm text-cream/80 leading-relaxed">
+                  {transcript}
+                </p>
               </motion.div>
-            ) : (
-              <>
-                <h3 className="text-lg font-semibold">Preview your drop</h3>
-
-                <div className="w-full bg-midnight-light rounded-xl p-4 border border-white/5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-2 h-2 rounded-full bg-coral" />
-                    <span className="text-xs text-cream-dim font-mono">
-                      {elapsed}s recorded
-                    </span>
-                  </div>
-
-                  {processing ? (
-                    <div className="space-y-2">
-                      <div className="h-3 bg-white/5 rounded animate-pulse w-full" />
-                      <div className="h-3 bg-white/5 rounded animate-pulse w-4/5" />
-                      <div className="h-3 bg-white/5 rounded animate-pulse w-3/5" />
-                      <p className="text-xs text-cream-dim mt-3">
-                        Transcribing...
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-cream/80 leading-relaxed">
-                      {transcript}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex gap-3 w-full">
-                  <button
-                    onClick={handleReRecord}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-white/10 text-cream-dim hover:text-cream hover:border-white/20 transition-colors"
-                  >
-                    <RotateCcw size={16} />
-                    <span className="text-sm font-medium">Re-record</span>
-                  </button>
-                  <button
-                    onClick={handleDrop}
-                    disabled={processing}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-coral text-white font-medium hover:bg-coral-dark transition-colors disabled:opacity-50"
-                  >
-                    <Send size={16} />
-                    <span className="text-sm">Drop it</span>
-                  </button>
-                </div>
-              </>
             )}
+
+            {extractions.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-wrap gap-2 w-full"
+              >
+                {extractions.map((ext, i) => (
+                  <TagChip
+                    key={i}
+                    type={ext.type as ExtractionType}
+                    content={ext.content}
+                  />
+                ))}
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+
+        {state === "dropped" && (
+          <motion.div
+            key="dropped"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="text-center"
+          >
+            <div className="text-5xl mb-4">🎙️</div>
+            <h3 className="text-xl font-semibold text-mint">Drop saved.</h3>
+            <p className="text-cream-dim text-sm mt-1 mb-6">Go build.</p>
+
+            {extractions.length > 0 && (
+              <div className="flex flex-wrap gap-2 justify-center mb-6">
+                {extractions.map((ext, i) => (
+                  <TagChip
+                    key={i}
+                    type={ext.type as ExtractionType}
+                    content={ext.content}
+                  />
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={reset}
+              className="text-sm text-cream-dim hover:text-cream transition-colors"
+            >
+              Record another
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
