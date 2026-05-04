@@ -1,55 +1,92 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Headphones, Play, Pause, Sparkles } from "lucide-react";
+
+const FALLBACK_ITEMS = [
+  "While you were away, the team shipped 3 features and resolved 5 blockers.",
+  "Marco deployed the caching layer — API latency is down 40%. The webhook integration is next.",
+  "Aya is blocked on staging DB access. She mentioned you specifically — credentials are needed.",
+  "Priya finalized the Q3 roadmap. Sprint demo moved to Friday for timezone overlap with Sydney.",
+  "Jordan completed the Kubernetes migration with zero downtime. SSL certs expire in 3 days — needs sign-off.",
+  "Team sentiment is up 8% this week. No critical unresolved items blocking your work directly.",
+];
+
+function formatTimestamp(index: number) {
+  const seconds = index * 15;
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
 
 export function KickoffView() {
   const [generating, setGenerating] = useState(false);
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [briefingItems, setBriefingItems] = useState<string[]>([]);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const handleGenerate = () => {
+  const handleGenerate = useCallback(async () => {
     setGenerating(true);
-    let p = 0;
-    const interval = setInterval(() => {
-      p += 2;
-      setProgress(p);
-      if (p >= 100) {
-        clearInterval(interval);
-        setGenerating(false);
-        setReady(true);
-      }
-    }, 60);
-  };
+    setProgress(0);
 
-  const briefingItems = [
-    {
-      time: "0:00",
-      text: "While you were away, the team shipped 3 features and resolved 5 blockers.",
-    },
-    {
-      time: "0:15",
-      text: "Marco deployed the caching layer — API latency is down 40%. The webhook integration is next.",
-    },
-    {
-      time: "0:30",
-      text: "Aya is blocked on staging DB access. She mentioned you specifically — credentials are needed.",
-    },
-    {
-      time: "0:45",
-      text: "Priya finalized the Q3 roadmap. Sprint demo moved to Friday for timezone overlap with Sydney.",
-    },
-    {
-      time: "1:00",
-      text: "Jordan completed the Kubernetes migration with zero downtime. SSL certs expire in 3 days — needs sign-off.",
-    },
-    {
-      time: "1:15",
-      text: "Team sentiment is up 8% this week. No critical unresolved items blocking your work directly.",
-    },
-  ];
+    const progressInterval = setInterval(() => {
+      setProgress((prev) => Math.min(prev + 1, 90));
+    }, 80);
+
+    try {
+      // Fetch drops first
+      let drops = [];
+      try {
+        const dropsRes = await fetch("/api/drops");
+        if (dropsRes.ok) drops = await dropsRes.json();
+      } catch {
+        // no drops available
+      }
+
+      const res = await fetch("/api/kickoff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ drops }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setBriefingItems(data.items?.length ? data.items : FALLBACK_ITEMS);
+        if (data.audio_url) setAudioUrl(data.audio_url);
+      } else {
+        setBriefingItems(FALLBACK_ITEMS);
+      }
+    } catch {
+      setBriefingItems(FALLBACK_ITEMS);
+    }
+
+    clearInterval(progressInterval);
+    setProgress(100);
+
+    setTimeout(() => {
+      setGenerating(false);
+      setReady(true);
+    }, 300);
+  }, []);
+
+  const togglePlay = useCallback(() => {
+    if (audioUrl && audioRef.current) {
+      if (playing) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setPlaying(!playing);
+    } else {
+      // No real audio — toggle visual waveform animation for demo
+      setPlaying(!playing);
+      if (!playing) {
+        setTimeout(() => setPlaying(false), briefingItems.length * 15 * 1000);
+      }
+    }
+  }, [playing, audioUrl, briefingItems.length]);
 
   return (
     <div className="pt-16 pb-20 px-4 max-w-lg mx-auto">
@@ -59,6 +96,15 @@ export function KickoffView() {
           Back from PTO? Get caught up in 90 seconds.
         </p>
       </div>
+
+      {audioUrl && (
+        <audio
+          ref={audioRef}
+          src={audioUrl}
+          onEnded={() => setPlaying(false)}
+          className="hidden"
+        />
+      )}
 
       <AnimatePresence mode="wait">
         {!generating && !ready && (
@@ -75,7 +121,9 @@ export function KickoffView() {
             <div className="text-center">
               <h2 className="text-base font-medium mb-1">Welcome back!</h2>
               <p className="text-sm text-cream-dim">
-                You missed <span className="text-coral font-medium">12 drops</span> across 3 days.
+                You missed{" "}
+                <span className="text-coral font-medium">12 drops</span> across
+                3 days.
               </p>
               <p className="text-sm text-cream-dim">
                 Generate a personalized audio briefing?
@@ -104,12 +152,17 @@ export function KickoffView() {
                 className="absolute bottom-0 left-0 right-0 bg-coral/20 transition-all duration-300"
                 style={{ height: `${progress}%` }}
               />
-              <Sparkles size={40} className="text-coral relative z-10 animate-pulse" />
+              <Sparkles
+                size={40}
+                className="text-coral relative z-10 animate-pulse"
+              />
             </div>
             <div className="text-center">
-              <h2 className="text-base font-medium mb-1">Generating briefing...</h2>
+              <h2 className="text-base font-medium mb-1">
+                Generating briefing...
+              </h2>
               <p className="text-sm text-cream-dim">
-                Scanning 12 drops, extracting what matters to you.
+                Scanning drops, extracting what matters to you.
               </p>
             </div>
             <div className="w-48 h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -131,11 +184,15 @@ export function KickoffView() {
             <div className="bg-midnight-light rounded-2xl border border-mint/20 p-4">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-sm font-medium text-mint">Your Kickoff is ready</h3>
-                  <p className="text-xs text-cream-dim mt-0.5">1:30 · Covers May 1–3</p>
+                  <h3 className="text-sm font-medium text-mint">
+                    Your Kickoff is ready
+                  </h3>
+                  <p className="text-xs text-cream-dim mt-0.5">
+                    {Math.ceil(briefingItems.length * 15 / 60)}:{String((briefingItems.length * 15) % 60).padStart(2, "0")} · Covers May 1–3
+                  </p>
                 </div>
                 <button
-                  onClick={() => setPlaying(!playing)}
+                  onClick={togglePlay}
                   className="w-12 h-12 bg-mint rounded-full flex items-center justify-center hover:bg-mint-dark transition-colors active:scale-95"
                 >
                   {playing ? (
@@ -160,6 +217,12 @@ export function KickoffView() {
                   ))}
                 </div>
               )}
+
+              {!audioUrl && (
+                <p className="text-[10px] text-cream-dim mt-2">
+                  Audio generation available when ElevenLabs is connected
+                </p>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -175,9 +238,9 @@ export function KickoffView() {
                   className="flex gap-3 py-2"
                 >
                   <span className="text-xs font-mono text-cream-dim w-8 shrink-0">
-                    {item.time}
+                    {formatTimestamp(i)}
                   </span>
-                  <p className="text-sm text-cream/70">{item.text}</p>
+                  <p className="text-sm text-cream/70">{item}</p>
                 </motion.div>
               ))}
             </div>

@@ -1,6 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+
+function seededHeights(count: number, seed: number) {
+  const heights: number[] = [];
+  let s = seed;
+  for (let i = 0; i < count; i++) {
+    s = (s * 9301 + 49297) % 233280;
+    heights.push(20 + Math.sin(i * 0.5) * 30 + (s / 233280) * 50);
+  }
+  return heights;
+}
 
 export function Waveform({
   duration,
@@ -13,6 +23,7 @@ export function Waveform({
 }) {
   const bars = 40;
   const [hovered, setHovered] = useState(false);
+  const heights = useMemo(() => seededHeights(bars, duration * 7 + 42), [duration]);
 
   return (
     <button
@@ -22,8 +33,7 @@ export function Waveform({
       className="flex items-center gap-1 h-10 w-full group cursor-pointer"
     >
       <div className="flex items-end gap-[2px] h-8 flex-1">
-        {Array.from({ length: bars }).map((_, i) => {
-          const height = 20 + Math.sin(i * 0.5) * 30 + Math.random() * 50;
+        {heights.map((height, i) => {
           return (
             <div
               key={i}
@@ -51,16 +61,20 @@ export function Waveform({
 
 export function LiveWaveform() {
   const bars = 50;
+  const durations = useMemo(
+    () => Array.from({ length: bars }, (_, i) => 0.4 + ((i * 9301 + 49297) % 233280) / 233280 * 0.6),
+    []
+  );
 
   return (
     <div className="flex items-end gap-[2px] h-16 w-full">
-      {Array.from({ length: bars }).map((_, i) => (
+      {durations.map((dur, i) => (
         <div
           key={i}
           className="flex-1 bg-coral rounded-full waveform-bar"
           style={{
             animationDelay: `${i * 0.04}s`,
-            animationDuration: `${0.4 + Math.random() * 0.6}s`,
+            animationDuration: `${dur}s`,
           }}
         />
       ))}

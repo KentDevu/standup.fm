@@ -1,15 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { RefreshCw } from "lucide-react";
 import { mockDrops } from "@/lib/mock-data";
+import { Drop } from "@/types";
 import { DropCard } from "./drop-card";
 
 type SortMode = "attention" | "latest";
 
 export function FeedView() {
   const [sort, setSort] = useState<SortMode>("attention");
+  const [drops, setDrops] = useState<Drop[]>(mockDrops);
+  const [loading, setLoading] = useState(true);
 
-  const sorted = [...mockDrops].sort((a, b) => {
+  const fetchDrops = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/drops");
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.length) {
+          setDrops(data);
+        }
+      }
+    } catch {
+      // keep mock data
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchDrops();
+  }, [fetchDrops]);
+
+  const sorted = [...drops].sort((a, b) => {
     if (sort === "attention") {
       const aUnresolved =
         a.extractions?.filter(
@@ -29,7 +53,15 @@ export function FeedView() {
   return (
     <div className="pt-16 pb-20 px-4 max-w-lg mx-auto">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-lg font-semibold">Team Feed</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-lg font-semibold">Team Feed</h1>
+          <button
+            onClick={fetchDrops}
+            className="text-cream-dim hover:text-cream transition-colors p-1"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
         <div className="flex bg-midnight-lighter rounded-lg p-0.5">
           <button
             onClick={() => setSort("attention")}
@@ -53,6 +85,14 @@ export function FeedView() {
           </button>
         </div>
       </div>
+
+      {drops.length === 0 && !loading && (
+        <div className="text-center py-20">
+          <div className="text-4xl mb-3">🎙️</div>
+          <h3 className="text-base font-medium mb-1">No drops yet.</h3>
+          <p className="text-sm text-cream-dim">Be the morning hero.</p>
+        </div>
+      )}
 
       <div className="space-y-3">
         {sorted.map((drop, i) => (
