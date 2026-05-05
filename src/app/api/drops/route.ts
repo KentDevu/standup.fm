@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { mockDrops } from "@/lib/mock-data";
 
 function hasSupabaseConfig() {
   return !!(
@@ -10,7 +9,8 @@ function hasSupabaseConfig() {
 
 export async function GET() {
   if (!hasSupabaseConfig()) {
-    return NextResponse.json(mockDrops);
+    console.warn("[drops] Supabase not configured");
+    return NextResponse.json([]);
   }
 
   try {
@@ -22,13 +22,15 @@ export async function GET() {
       .order("created_at", { ascending: false })
       .limit(20);
 
-    if (error || !drops?.length) {
-      return NextResponse.json(mockDrops);
+    if (error) {
+      console.error("[drops] Supabase query error:", error);
+      return NextResponse.json([]);
     }
 
-    return NextResponse.json(drops);
-  } catch {
-    return NextResponse.json(mockDrops);
+    return NextResponse.json(drops ?? []);
+  } catch (err) {
+    console.error("[drops] GET exception:", err);
+    return NextResponse.json([]);
   }
 }
 

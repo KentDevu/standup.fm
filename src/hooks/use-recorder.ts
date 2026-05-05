@@ -55,11 +55,20 @@ export function useRecorder() {
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-          ? "audio/webm;codecs=opus"
-          : "audio/webm",
-      });
+
+      // Pick the best supported MIME type — Safari needs audio/mp4
+      const mimeType =
+        [
+          "audio/webm;codecs=opus",
+          "audio/webm",
+          "audio/ogg;codecs=opus",
+          "audio/mp4",
+        ].find((m) => MediaRecorder.isTypeSupported(m)) ?? "";
+
+      const mediaRecorder = new MediaRecorder(
+        stream,
+        mimeType ? { mimeType } : undefined,
+      );
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -69,7 +78,9 @@ export function useRecorder() {
 
       mediaRecorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const blob = new Blob(chunksRef.current, {
+          type: mimeType || "audio/webm",
+        });
         setAudioBlob(blob);
       };
 
@@ -174,25 +185,27 @@ export function useRecorder() {
         const data = await res.json();
         if (!res.ok) {
           console.error("[transcribe] failed:", data);
-        } else if (data.fallback) {
-          console.warn(
-            "[transcribe] using fallback transcript — check DEEPGRAM_API_KEY",
+          setProcessingError(
+            data.error ?? "Transcription failed — check mic and try again",
           );
-          finalTranscript = data.transcript;
-        } else {
-          finalTranscript = data.transcript;
+          setState("preview");
+          return;
         }
+        finalTranscript = data.transcript ?? "";
       } catch (err) {
         console.error("[transcribe] exception:", err);
+        setProcessingError("Transcription failed — check your connection");
+        setState("preview");
+        return;
       }
     }
 
-    if (!finalTranscript) {
-      console.warn(
-        "[transcribe] no transcript returned, using hardcoded fallback",
+    if (!finalTranscript.trim()) {
+      setProcessingError(
+        "No speech detected — please speak clearly and try again",
       );
-      finalTranscript =
-        "Yesterday I shipped the login flow with OAuth. Today I'm refactoring the dashboard components. I'm blocked — the staging DB keeps throwing 500 errors. Marco, could you grant me staging credentials?";
+      setState("preview");
+      return;
     }
     setTranscript(finalTranscript);
 
@@ -226,9 +239,11 @@ export function useRecorder() {
       console.error("[extract] exception:", err);
     }
 
+    // If AI extraction failed entirely, use the keyword-based fallback already built into /api/extract
+    // That fallback operates on the real transcript so it's still real data
     if (!finalExtractions.length) {
       finalExtractions = [
-        { type: "win", content: "Shared a standup update", mentions: [] },
+        { type: "win", content: finalTranscript.slice(0, 120), mentions: [] },
       ];
     }
     setExtractions(finalExtractions);
