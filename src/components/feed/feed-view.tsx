@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { RefreshCw } from "lucide-react";
-import { mockDrops } from "@/lib/mock-data";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { RefreshCw, Wifi } from "lucide-react";
 import { Drop } from "@/types";
 import { DropCard } from "./drop-card";
 
@@ -10,8 +9,10 @@ type SortMode = "attention" | "latest";
 
 export function FeedView() {
   const [sort, setSort] = useState<SortMode>("attention");
-  const [drops, setDrops] = useState<Drop[]>(mockDrops);
+  const [drops, setDrops] = useState<Drop[]>([]);
   const [loading, setLoading] = useState(true);
+  const [liveConnected, setLiveConnected] = useState(false);
+  const channelRef = useRef<unknown>(null);
 
   const fetchDrops = useCallback(async () => {
     setLoading(true);
@@ -19,15 +20,70 @@ export function FeedView() {
       const res = await fetch("/api/drops");
       if (res.ok) {
         const data = await res.json();
-        if (data?.length) {
-          setDrops(data);
-        }
+        setDrops(data ?? []);
       }
     } catch {
-      // keep mock data
+      // keep current state
     }
     setLoading(false);
   }, []);
+
+  // Realtime subscription — new drops pushed live
+  useEffect(() => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey) return;
+
+    let active = true;
+
+    import("@supabase/supabase-js").then(({ createClient }) => {
+      if (!active) return;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const channel = supabase
+        .channel("drops-feed")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "drops" },
+          () => {
+            // Refetch so we get the full drop with user + extractions joined
+            fetchDrops();
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "extractions" },
+          (payload) => {
+            // Update resolved state in-place without refetch
+            setDrops((prev) =>
+              prev.map((drop) => ({
+                ...drop,
+                extractions: drop.extractions?.map((ext) =>
+                  ext.id === payload.new.id
+                    ? { ...ext, resolved_at: payload.new.resolved_at, resolved_by: payload.new.resolved_by }
+                    : ext
+                ),
+              }))
+            );
+          }
+        )
+        .subscribe((status) => {
+          setLiveConnected(status === "SUBSCRIBED");
+        });
+
+      // @ts-ignore — dynamic import channel type
+      channelRef.current = channel;
+
+      return () => {
+        active = false;
+        supabase.removeChannel(channel);
+      };
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [fetchDrops]);
 
   useEffect(() => {
     fetchDrops();
@@ -55,12 +111,19 @@ export function FeedView() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <h1 className="text-lg font-semibold">Team Feed</h1>
-          <button
-            onClick={fetchDrops}
-            className="text-cream-dim hover:text-cream transition-colors p-1"
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-          </button>
+          {liveConnected ? (
+            <span className="flex items-center gap-1 text-mint text-xs">
+              <Wifi size={11} />
+              live
+            </span>
+          ) : (
+            <button
+              onClick={fetchDrops}
+              className="text-cream-dim hover:text-cream transition-colors p-1"
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            </button>
+          )}
         </div>
         <div className="flex bg-midnight-lighter rounded-lg p-0.5">
           <button
@@ -86,7 +149,14 @@ export function FeedView() {
         </div>
       </div>
 
-      {drops.length === 0 && !loading && (
+      {loading && drops.length === 0 && (
+        <div className="text-center py-20">
+          <div className="text-4xl mb-3 animate-pulse">🎙️</div>
+          <p className="text-sm text-cream-dim">Loading drops...</p>
+        </div>
+      )}
+
+      {!loading && drops.length === 0 && (
         <div className="text-center py-20">
           <div className="text-4xl mb-3">🎙️</div>
           <h3 className="text-base font-medium mb-1">No drops yet.</h3>
