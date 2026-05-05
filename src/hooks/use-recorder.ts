@@ -2,7 +2,13 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 
-export type RecordingState = "idle" | "countdown" | "recording" | "preview" | "processing" | "dropped";
+export type RecordingState =
+  | "idle"
+  | "countdown"
+  | "recording"
+  | "preview"
+  | "processing"
+  | "dropped";
 
 const MAX_DURATION = 90;
 
@@ -16,6 +22,7 @@ export function useRecorder() {
     { type: string; content: string; mentions: string[] }[]
   >([]);
   const [processingStep, setProcessingStep] = useState("");
+  const [processingError, setProcessingError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -42,6 +49,7 @@ export function useRecorder() {
     setTranscript("");
     setExtractions([]);
     setProcessingStep("");
+    setProcessingError(null);
   }, []);
 
   const startRecording = useCallback(async () => {
@@ -102,15 +110,21 @@ export function useRecorder() {
 
   useEffect(() => {
     if (elapsed >= MAX_DURATION && state === "recording") {
-      stopRecording();
+      const t = setTimeout(stopRecording, 0);
+      return () => clearTimeout(t);
     }
   }, [elapsed, state, stopRecording]);
 
   const processAndDrop = useCallback(async () => {
     setState("processing");
+    setProcessingError(null);
 
     let finalTranscript = "";
-    let finalExtractions: { type: string; content: string; mentions: string[] }[] = [];
+    let finalExtractions: {
+      type: string;
+      content: string;
+      mentions: string[];
+    }[] = [];
     let sentimentScore = 0.7;
     let audioUrl = "";
 
@@ -120,13 +134,30 @@ export function useRecorder() {
       try {
         const formData = new FormData();
         formData.append("audio", audioBlob, "drop.webm");
-        const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          audioUrl = uploadData.url || "";
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok) {
+          console.error("[upload] failed:", uploadData);
+          setProcessingError(
+            `Upload failed: ${uploadData.error ?? uploadRes.status}`,
+          );
+          setState("preview");
+          return;
         }
-      } catch {
-        // fallback: no upload
+        audioUrl = uploadData.url || "";
+        if (uploadData.fallback) {
+          console.warn(
+            "[upload] using fallback URL — storage may not be configured",
+          );
+        }
+      } catch (err) {
+        console.error("[upload] exception:", err);
+        setProcessingError("Upload failed — check console for details");
+        setState("preview");
+        return;
       }
     }
 
@@ -136,17 +167,30 @@ export function useRecorder() {
       try {
         const formData = new FormData();
         formData.append("audio", audioBlob, "drop.webm");
-        const res = await fetch("/api/transcribe", { method: "POST", body: formData });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.transcript) finalTranscript = data.transcript;
+        const res = await fetch("/api/transcribe", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          console.error("[transcribe] failed:", data);
+        } else if (data.fallback) {
+          console.warn(
+            "[transcribe] using fallback transcript — check DEEPGRAM_API_KEY",
+          );
+          finalTranscript = data.transcript;
+        } else {
+          finalTranscript = data.transcript;
         }
-      } catch {
-        // fallback below
+      } catch (err) {
+        console.error("[transcribe] exception:", err);
       }
     }
 
     if (!finalTranscript) {
+      console.warn(
+        "[transcribe] no transcript returned, using hardcoded fallback",
+      );
       finalTranscript =
         "Yesterday I shipped the login flow with OAuth. Today I'm refactoring the dashboard components. I'm blocked — the staging DB keeps throwing 500 errors. Marco, could you grant me staging credentials?";
     }
@@ -160,23 +204,31 @@ export function useRecorder() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           transcript: finalTranscript,
-          team_members: ["Aya Santos", "Marco Weber", "Priya Sharma", "Jordan Chen"],
+          team_members: [
+            "Aya Santos",
+            "Marco Weber",
+            "Priya Sharma",
+            "Jordan Chen",
+          ],
         }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.extractions?.length) finalExtractions = data.extractions;
-        if (data.sentiment_score != null) sentimentScore = data.sentiment_score;
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("[extract] failed:", data);
+      } else if (data.fallback) {
+        console.warn(
+          "[extract] using fallback extraction — check ANTHROPIC_API_KEY",
+        );
       }
-    } catch {
-      // fallback below
+      if (data.extractions?.length) finalExtractions = data.extractions;
+      if (data.sentiment_score != null) sentimentScore = data.sentiment_score;
+    } catch (err) {
+      console.error("[extract] exception:", err);
     }
 
     if (!finalExtractions.length) {
       finalExtractions = [
-        { type: "win", content: "Shipped login flow with OAuth", mentions: [] },
-        { type: "blocker", content: "Staging DB throwing 500 errors", mentions: ["Marco Weber"] },
-        { type: "ask", content: "Need staging credentials from Marco", mentions: ["Marco Weber"] },
+        { type: "win", content: "Shared a standup update", mentions: [] },
       ];
     }
     setExtractions(finalExtractions);
@@ -184,7 +236,7 @@ export function useRecorder() {
     // Step 4: Save drop
     setProcessingStep("Saving drop...");
     try {
-      await fetch("/api/drops", {
+      const res = await fetch("/api/drops", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -197,8 +249,15 @@ export function useRecorder() {
           extractions: finalExtractions,
         }),
       });
-    } catch {
-      // feed will still show from local state
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("[drops] save failed:", data);
+        setProcessingError(`Save failed: ${data.error ?? res.status}`);
+      } else if (data.fallback) {
+        console.warn("[drops] saved locally only — check Supabase config");
+      }
+    } catch (err) {
+      console.error("[drops] exception:", err);
     }
 
     setProcessingStep("");
@@ -213,6 +272,7 @@ export function useRecorder() {
     transcript,
     extractions,
     processingStep,
+    processingError,
     maxDuration: MAX_DURATION,
     startCountdown,
     stopRecording,

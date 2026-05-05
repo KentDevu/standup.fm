@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { mockDrops } from "@/lib/mock-data";
 
 function hasSupabaseConfig() {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  return !!(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
 }
 
 export async function GET() {
@@ -33,7 +36,11 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
 
   if (!hasSupabaseConfig()) {
-    return NextResponse.json({ id: `local-${Date.now()}`, ...body, fallback: true });
+    return NextResponse.json({
+      id: `local-${Date.now()}`,
+      ...body,
+      fallback: true,
+    });
   }
 
   try {
@@ -54,7 +61,12 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ id: `local-${Date.now()}`, ...body, fallback: true });
+      console.error("[drops] Supabase insert error:", error);
+      return NextResponse.json({
+        id: `local-${Date.now()}`,
+        ...body,
+        fallback: true,
+      });
     }
 
     if (body.extractions?.length) {
@@ -65,13 +77,17 @@ export async function POST(req: NextRequest) {
             type: e.type,
             content: e.content,
             mentions: e.mentions || [],
-          })
-        )
+          }),
+        ),
       );
     }
 
     return NextResponse.json(drop);
   } catch {
-    return NextResponse.json({ id: `local-${Date.now()}`, ...body, fallback: true });
+    return NextResponse.json({
+      id: `local-${Date.now()}`,
+      ...body,
+      fallback: true,
+    });
   }
 }

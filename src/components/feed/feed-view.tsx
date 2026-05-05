@@ -15,7 +15,6 @@ export function FeedView() {
   const channelRef = useRef<unknown>(null);
 
   const fetchDrops = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await fetch("/api/drops");
       if (res.ok) {
@@ -24,21 +23,30 @@ export function FeedView() {
       }
     } catch {
       // keep current state
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
-  // Realtime subscription — new drops pushed live
+  // Realtime subscription + initial load
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!supabaseUrl || !supabaseKey) return;
+
+    if (!supabaseUrl || !supabaseKey) {
+      // No Supabase — defer so setState is not called synchronously in effect body
+      const t = setTimeout(() => void fetchDrops(), 0);
+      return () => clearTimeout(t);
+    }
 
     let active = true;
 
     import("@supabase/supabase-js").then(({ createClient }) => {
       if (!active) return;
       const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // Initial load inside the async callback — not synchronous in effect body
+      void fetchDrops();
 
       const channel = supabase
         .channel("drops-feed")
@@ -47,7 +55,7 @@ export function FeedView() {
           { event: "INSERT", schema: "public", table: "drops" },
           () => {
             // Refetch so we get the full drop with user + extractions joined
-            fetchDrops();
+            void fetchDrops();
           },
         )
         .on(
@@ -75,7 +83,6 @@ export function FeedView() {
           setLiveConnected(status === "SUBSCRIBED");
         });
 
-      // @ts-ignore — dynamic import channel type
       channelRef.current = channel;
 
       return () => {
@@ -87,10 +94,6 @@ export function FeedView() {
     return () => {
       active = false;
     };
-  }, [fetchDrops]);
-
-  useEffect(() => {
-    fetchDrops();
   }, [fetchDrops]);
 
   const sorted = [...drops].sort((a, b) => {

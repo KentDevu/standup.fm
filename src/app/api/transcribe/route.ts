@@ -13,7 +13,10 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.DEEPGRAM_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ transcript: FALLBACK_TRANSCRIPT, fallback: true });
+    return NextResponse.json({
+      transcript: FALLBACK_TRANSCRIPT,
+      fallback: true,
+    });
   }
 
   try {
@@ -28,11 +31,16 @@ export async function POST(req: NextRequest) {
           "Content-Type": "audio/webm",
         },
         body: buffer,
-      }
+      },
     );
 
     if (!response.ok) {
-      return NextResponse.json({ transcript: FALLBACK_TRANSCRIPT, fallback: true });
+      const errBody = await response.text().catch(() => "");
+      console.error("[transcribe] Deepgram error:", response.status, errBody);
+      return NextResponse.json({
+        transcript: FALLBACK_TRANSCRIPT,
+        fallback: true,
+      });
     }
 
     const data = await response.json();
@@ -43,7 +51,11 @@ export async function POST(req: NextRequest) {
       transcript: transcript || FALLBACK_TRANSCRIPT,
       fallback: !transcript,
     });
-  } catch {
-    return NextResponse.json({ transcript: FALLBACK_TRANSCRIPT, fallback: true });
+  } catch (err) {
+    console.error("[transcribe] exception:", err);
+    return NextResponse.json({
+      transcript: FALLBACK_TRANSCRIPT,
+      fallback: true,
+    });
   }
 }

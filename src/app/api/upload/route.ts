@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
     });
 
   if (error) {
+    console.error("[upload] Supabase storage error:", error);
     return NextResponse.json({ url: "/demo/drop.webm", fallback: true });
   }
 
