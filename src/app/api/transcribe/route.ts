@@ -19,11 +19,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const buffer = Buffer.from(await audio.arrayBuffer());
-    // Use the FULL content type (including codec) for Deepgram — it needs this to decode opus streams
-    // Only Supabase storage needs the stripped base type
-    const deepgramContentType = audio.type || "audio/webm;codecs=opus";
-    // Strip for logging clarity
-    const baseType = deepgramContentType.split(";")[0].trim();
+    // Browsers strip codec params from FormData blobs (audio/webm;codecs=opus → audio/webm)
+    // Deepgram needs the full codec string to properly decode opus in webm containers
+    const receivedType = audio.type || "audio/webm";
+    let deepgramContentType = receivedType;
+    if (receivedType === "audio/webm" || receivedType === "audio/ogg") {
+      deepgramContentType = receivedType + ";codecs=opus";
+    }
 
     console.log(
       `[transcribe] sending to Deepgram — size: ${buffer.byteLength}b, type: ${deepgramContentType}`,
