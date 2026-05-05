@@ -1,6 +1,14 @@
 "use client";
 
-import { Mic, Square, RotateCcw, Send, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  Mic,
+  Square,
+  RotateCcw,
+  Send,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LiveWaveform } from "@/components/ui/waveform";
 import { TagChip } from "@/components/ui/tag-chip";
@@ -14,15 +22,29 @@ export function Recorder() {
     state,
     countdown,
     elapsed,
+    audioBlob,
     transcript,
     extractions,
     processingStep,
+    processingError,
     maxDuration,
     startCountdown,
     stopRecording,
     processAndDrop,
     reset,
   } = useRecorder();
+
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!audioBlob) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(audioBlob);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [audioBlob]);
 
   const progress = (elapsed / maxDuration) * 100;
 
@@ -152,9 +174,19 @@ export function Recorder() {
                   {elapsed}s recorded
                 </span>
               </div>
-              <p className="text-xs text-cream-dim">
-                Audio captured. Tap &quot;Drop it&quot; to transcribe and process.
-              </p>
+              {previewUrl ? (
+                <audio
+                  src={previewUrl}
+                  controls
+                  className="w-full h-8 mt-1"
+                  style={{ colorScheme: "dark" }}
+                />
+              ) : (
+                <p className="text-xs text-cream-dim">
+                  Audio captured. Tap &quot;Drop it&quot; to transcribe and
+                  process.
+                </p>
+              )}
             </div>
 
             <div className="flex gap-3 w-full">
@@ -186,9 +218,33 @@ export function Recorder() {
           >
             <Loader2 size={40} className="text-coral animate-spin" />
             <div className="text-center">
-              <h3 className="text-lg font-semibold mb-1">Processing your drop</h3>
+              <h3 className="text-lg font-semibold mb-1">
+                Processing your drop
+              </h3>
               <p className="text-sm text-cream-dim">{processingStep}</p>
             </div>
+
+            {processingError && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="w-full bg-coral/10 rounded-xl p-4 border border-coral/30 flex items-start gap-3"
+              >
+                <AlertCircle size={16} className="text-coral shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-coral font-medium mb-0.5">
+                    Pipeline error
+                  </p>
+                  <p className="text-xs text-cream-dim">{processingError}</p>
+                  <button
+                    onClick={reset}
+                    className="text-xs text-coral underline mt-2"
+                  >
+                    Try again
+                  </button>
+                </div>
+              </motion.div>
+            )}
 
             {transcript && (
               <motion.div

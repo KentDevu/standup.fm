@@ -3,34 +3,28 @@
 import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, ChevronUp, Clock } from "lucide-react";
-import { Drop } from "@/types";
+import { Drop, Reaction } from "@/types";
 import { Avatar } from "@/components/ui/avatar";
 import { TagChip } from "@/components/ui/tag-chip";
 import { Waveform } from "@/components/ui/waveform";
 import { formatDistanceToNow } from "date-fns";
 
-export function DropCard({
-  drop,
-  index,
-}: {
-  drop: Drop;
-  index: number;
-}) {
+const DEMO_USER_ID = "00000000-0000-0000-0000-000000000011";
+const REACTION_EMOJIS = ["🔥", "💪", "🙌", "👀", "❤️"];
+
+export function DropCard({ drop, index }: { drop: Drop; index: number }) {
   const [expanded, setExpanded] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [resolvedIds, setResolvedIds] = useState<Set<string>>(
     new Set(
-      drop.extractions
-        ?.filter((e) => e.resolved_at)
-        .map((e) => e.id) || []
-    )
+      drop.extractions?.filter((e) => e.resolved_at).map((e) => e.id) || [],
+    ),
   );
+  const [reactions, setReactions] = useState<Reaction[]>(drop.reactions ?? []);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const hasUnresolved = drop.extractions?.some(
-    (e) =>
-      (e.type === "blocker" || e.type === "ask") &&
-      !resolvedIds.has(e.id)
+    (e) => (e.type === "blocker" || e.type === "ask") && !resolvedIds.has(e.id),
   );
 
   const handleResolve = async (extractionId: string) => {
@@ -43,6 +37,38 @@ export function DropCard({
       });
     } catch {
       // already resolved in local state
+    }
+  };
+
+  const handleReact = async (emoji: string) => {
+    const isMine = reactions.some(
+      (r) => r.emoji === emoji && r.user_id === DEMO_USER_ID,
+    );
+    // Optimistic update
+    if (isMine) {
+      setReactions((prev) =>
+        prev.filter((r) => !(r.emoji === emoji && r.user_id === DEMO_USER_ID)),
+      );
+    } else {
+      setReactions((prev) => [
+        ...prev,
+        {
+          id: `optimistic-${Date.now()}`,
+          drop_id: drop.id,
+          user_id: DEMO_USER_ID,
+          emoji,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+    }
+    try {
+      await fetch("/api/reactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ drop_id: drop.id, emoji }),
+      });
+    } catch {
+      // optimistic state stays
     }
   };
 
@@ -153,6 +179,28 @@ export function DropCard({
           </div>
         )}
 
+        {/* @mentions chips — deduplicated across all extractions */}
+        {(() => {
+          const names = [
+            ...new Set(
+              drop.extractions?.flatMap((e) => e.mentions ?? []) ?? [],
+            ),
+          ].filter(Boolean);
+          if (!names.length) return null;
+          return (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {names.map((name) => (
+                <span
+                  key={name}
+                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-mint/10 text-mint border border-mint/20"
+                >
+                  @{name}
+                </span>
+              ))}
+            </div>
+          );
+        })()}
+
         <button
           onClick={() => setExpanded(!expanded)}
           className="flex items-center gap-1 mt-3 text-xs text-cream-dim hover:text-cream transition-colors"
@@ -173,6 +221,31 @@ export function DropCard({
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Reactions row */}
+        <div className="mt-3 flex items-center gap-1 flex-wrap">
+          {REACTION_EMOJIS.map((emoji) => {
+            const count = reactions.filter((r) => r.emoji === emoji).length;
+            const isMine = reactions.some(
+              (r) => r.emoji === emoji && r.user_id === DEMO_USER_ID,
+            );
+            return (
+              <motion.button
+                key={emoji}
+                whileTap={{ scale: 0.85 }}
+                onClick={() => handleReact(emoji)}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors ${
+                  isMine
+                    ? "bg-coral/20 border border-coral/40 text-cream"
+                    : "bg-white/5 border border-white/10 text-cream-dim hover:bg-white/10 hover:text-cream"
+                }`}
+              >
+                <span>{emoji}</span>
+                {count > 0 && <span className="font-mono">{count}</span>}
+              </motion.button>
+            );
+          })}
+        </div>
       </div>
     </motion.div>
   );

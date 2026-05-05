@@ -1,6 +1,26 @@
 -- StandUp.fm Database Schema
 -- Run this in your Supabase SQL editor
 
+-- Storage bucket for audio drops
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'audio',
+  'audio',
+  true,
+  26214400, -- 25 MB limit
+  array['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'audio/wav', 'audio/ogg; codecs=opus', 'audio/webm; codecs=opus']
+) on conflict (id) do nothing;
+
+-- Allow anon (and service role) to upload audio files
+create policy "Allow audio uploads"
+  on storage.objects for insert
+  with check (bucket_id = 'audio');
+
+-- Allow public reads of audio files (bucket is public but policy is needed for RLS)
+create policy "Allow audio reads"
+  on storage.objects for select
+  using (bucket_id = 'audio');
+
 create table teams (
   id uuid primary key default gen_random_uuid(),
   name text not null,

@@ -7,6 +7,7 @@ export function Sparkline({
   label,
   value,
   unit,
+  dayLabels,
 }: {
   data: number[];
   color?: string;
@@ -14,6 +15,7 @@ export function Sparkline({
   label: string;
   value: string;
   unit: string;
+  dayLabels?: string[];
 }) {
   const max = Math.max(...data);
   const min = Math.min(...data);
@@ -61,8 +63,12 @@ export function Sparkline({
         />
       </svg>
       <div className="flex justify-between mt-1">
-        <span className="text-[10px] text-cream-dim">Mon</span>
-        <span className="text-[10px] text-cream-dim">Sun</span>
+        <span className="text-[10px] text-cream-dim">
+          {dayLabels?.[0] ?? "Mon"}
+        </span>
+        <span className="text-[10px] text-cream-dim">
+          {dayLabels?.[dayLabels.length - 1] ?? "Sun"}
+        </span>
       </div>
     </div>
   );

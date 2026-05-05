@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { mockDrops } from "@/lib/mock-data";
 
 function hasSupabaseConfig() {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  return !!(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
 }
 
 export async function GET() {
   if (!hasSupabaseConfig()) {
-    return NextResponse.json(mockDrops);
+    console.warn("[drops] Supabase not configured");
+    return NextResponse.json([]);
   }
 
   try {
@@ -15,17 +18,19 @@ export async function GET() {
     const supabase = getSupabase();
     const { data: drops, error } = await supabase
       .from("drops")
-      .select(`*, user:users(*), extractions(*)`)
+      .select(`*, user:users(*), extractions(*), reactions(*)`)
       .order("created_at", { ascending: false })
       .limit(20);
 
-    if (error || !drops?.length) {
-      return NextResponse.json(mockDrops);
+    if (error) {
+      console.error("[drops] Supabase query error:", error);
+      return NextResponse.json([]);
     }
 
-    return NextResponse.json(drops);
-  } catch {
-    return NextResponse.json(mockDrops);
+    return NextResponse.json(drops ?? []);
+  } catch (err) {
+    console.error("[drops] GET exception:", err);
+    return NextResponse.json([]);
   }
 }
 
@@ -33,7 +38,11 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
 
   if (!hasSupabaseConfig()) {
-    return NextResponse.json({ id: `local-${Date.now()}`, ...body, fallback: true });
+    return NextResponse.json({
+      id: `local-${Date.now()}`,
+      ...body,
+      fallback: true,
+    });
   }
 
   try {
@@ -54,7 +63,12 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ id: `local-${Date.now()}`, ...body, fallback: true });
+      console.error("[drops] Supabase insert error:", error);
+      return NextResponse.json({
+        id: `local-${Date.now()}`,
+        ...body,
+        fallback: true,
+      });
     }
 
     if (body.extractions?.length) {
@@ -65,13 +79,17 @@ export async function POST(req: NextRequest) {
             type: e.type,
             content: e.content,
             mentions: e.mentions || [],
-          })
-        )
+          }),
+        ),
       );
     }
 
     return NextResponse.json(drop);
   } catch {
-    return NextResponse.json({ id: `local-${Date.now()}`, ...body, fallback: true });
+    return NextResponse.json({
+      id: `local-${Date.now()}`,
+      ...body,
+      fallback: true,
+    });
   }
 }
