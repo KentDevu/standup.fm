@@ -8,13 +8,26 @@ import {
   RefreshCw,
   Mail,
   CheckCircle,
+  Mic,
+  Users,
+  ShieldAlert,
 } from "lucide-react";
 import { Sparkline } from "@/components/ui/sparkline";
 import { mockPulseMetrics, mockInsights } from "@/lib/mock-data";
 import { PulseMetrics, AIInsight } from "@/types";
 
+interface PulseStats {
+  drops_today: number;
+  active_members_today: number;
+  total_users: number;
+  open_blockers: number;
+  total_drops_week: number;
+}
+
 export function PulseView() {
   const [metrics, setMetrics] = useState<PulseMetrics | null>(null);
+  const [stats, setStats] = useState<PulseStats | null>(null);
+  const [dayLabels, setDayLabels] = useState<string[]>([]);
   const [insights, setInsights] = useState<AIInsight[]>([]);
   const [loading, setLoading] = useState(true);
   const [isMock, setIsMock] = useState(false);
@@ -30,6 +43,8 @@ export function PulseView() {
         if (res.ok) {
           const data = await res.json();
           if (data.metrics) setMetrics(data.metrics);
+          if (data.stats) setStats(data.stats);
+          if (data.day_labels?.length) setDayLabels(data.day_labels);
           if (data.insights?.length) setInsights(data.insights);
           setIsMock(data.fallback === true);
         }
@@ -83,6 +98,59 @@ export function PulseView() {
         )}
       </div>
 
+      {/* Today at a glance */}
+      {stats && (
+        <div className="grid grid-cols-3 gap-2 mb-5">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-midnight-light rounded-xl p-3 border border-white/5 flex flex-col items-center gap-1"
+          >
+            <Mic size={14} className="text-coral" />
+            <span className="text-xl font-bold text-cream">
+              {stats.drops_today}
+            </span>
+            <span className="text-xs text-cream-dim">drops today</span>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="bg-midnight-light rounded-xl p-3 border border-white/5 flex flex-col items-center gap-1"
+          >
+            <Users size={14} className="text-mint" />
+            <span className="text-xl font-bold text-cream">
+              {stats.active_members_today}
+              <span className="text-sm font-normal text-cream-dim">
+                /{stats.total_users}
+              </span>
+            </span>
+            <span className="text-xs text-cream-dim">active today</span>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className={`bg-midnight-light rounded-xl p-3 border flex flex-col items-center gap-1 ${
+              stats.open_blockers > 0 ? "border-coral/20" : "border-white/5"
+            }`}
+          >
+            <ShieldAlert
+              size={14}
+              className={
+                stats.open_blockers > 0 ? "text-coral" : "text-cream-dim"
+              }
+            />
+            <span
+              className={`text-xl font-bold ${stats.open_blockers > 0 ? "text-coral" : "text-cream"}`}
+            >
+              {stats.open_blockers}
+            </span>
+            <span className="text-xs text-cream-dim">open blockers</span>
+          </motion.div>
+        </div>
+      )}
+
       {insights.length > 0 && (
         <div className="space-y-2 mb-6">
           {insights.map((insight, i) => (
@@ -124,6 +192,7 @@ export function PulseView() {
             ],
           )}
           unit="today"
+          dayLabels={dayLabels}
         />
         <Sparkline
           data={displayMetrics.resolution_time}
@@ -133,6 +202,7 @@ export function PulseView() {
             displayMetrics.resolution_time.length - 1
           ].toFixed(1)}
           unit="hrs avg"
+          dayLabels={dayLabels}
         />
         <Sparkline
           data={displayMetrics.participation}
@@ -144,6 +214,7 @@ export function PulseView() {
             ],
           )}
           unit="% today"
+          dayLabels={dayLabels}
         />
         <Sparkline
           data={displayMetrics.sentiment_trend}
@@ -155,6 +226,7 @@ export function PulseView() {
             ] * 100,
           ).toString()}
           unit="% positive"
+          dayLabels={dayLabels}
         />
       </div>
 
@@ -165,8 +237,16 @@ export function PulseView() {
             <span className="text-coral font-medium">
               {totalBlockers} blockers
             </span>{" "}
-            raised
+            raised · {stats?.open_blockers ?? "—"} still open
           </p>
+          {stats && (
+            <p>
+              <span className="text-mint font-medium">
+                {stats.total_drops_week} standups
+              </span>{" "}
+              recorded this week
+            </p>
+          )}
           <p>
             Average resolution time:{" "}
             <span className="font-mono text-cream">
@@ -195,7 +275,7 @@ export function PulseView() {
           <div>
             <h3 className="text-sm font-medium">Daily Digest Email</h3>
             <p className="text-xs text-cream-dim mt-0.5">
-              Send today's standup summary to your inbox.
+              Send today&apos;s standup summary to your inbox.
             </p>
           </div>
           <motion.button
