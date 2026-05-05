@@ -48,7 +48,7 @@ export function FeedView() {
           () => {
             // Refetch so we get the full drop with user + extractions joined
             fetchDrops();
-          }
+          },
         )
         .on(
           "postgres_changes",
@@ -60,12 +60,16 @@ export function FeedView() {
                 ...drop,
                 extractions: drop.extractions?.map((ext) =>
                   ext.id === payload.new.id
-                    ? { ...ext, resolved_at: payload.new.resolved_at, resolved_by: payload.new.resolved_by }
-                    : ext
+                    ? {
+                        ...ext,
+                        resolved_at: payload.new.resolved_at,
+                        resolved_by: payload.new.resolved_by,
+                      }
+                    : ext,
                 ),
-              }))
+              })),
             );
-          }
+          },
         )
         .subscribe((status) => {
           setLiveConnected(status === "SUBSCRIBED");
@@ -93,13 +97,11 @@ export function FeedView() {
     if (sort === "attention") {
       const aUnresolved =
         a.extractions?.filter(
-          (e) =>
-            (e.type === "blocker" || e.type === "ask") && !e.resolved_at
+          (e) => (e.type === "blocker" || e.type === "ask") && !e.resolved_at,
         ).length || 0;
       const bUnresolved =
         b.extractions?.filter(
-          (e) =>
-            (e.type === "blocker" || e.type === "ask") && !e.resolved_at
+          (e) => (e.type === "blocker" || e.type === "ask") && !e.resolved_at,
         ).length || 0;
       return bUnresolved - aUnresolved;
     }
