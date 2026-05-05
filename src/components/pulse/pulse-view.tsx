@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle, TrendingUp, RefreshCw } from "lucide-react";
+import {
+  AlertTriangle,
+  TrendingUp,
+  RefreshCw,
+  Mail,
+  CheckCircle,
+} from "lucide-react";
 import { Sparkline } from "@/components/ui/sparkline";
 import { mockPulseMetrics, mockInsights } from "@/lib/mock-data";
 import { PulseMetrics, AIInsight } from "@/types";
@@ -12,6 +18,9 @@ export function PulseView() {
   const [insights, setInsights] = useState<AIInsight[]>([]);
   const [loading, setLoading] = useState(true);
   const [isMock, setIsMock] = useState(false);
+  const [digestSending, setDigestSending] = useState(false);
+  const [digestSent, setDigestSent] = useState(false);
+  const [digestError, setDigestError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchPulse() {
@@ -178,6 +187,61 @@ export function PulseView() {
             from start of week
           </p>
         </div>
+      </div>
+
+      {/* Daily Digest */}
+      <div className="mt-4 bg-midnight-light rounded-xl p-4 border border-white/5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-medium">Daily Digest Email</h3>
+            <p className="text-xs text-cream-dim mt-0.5">
+              Send today's standup summary to your inbox.
+            </p>
+          </div>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            disabled={digestSending || digestSent}
+            onClick={async () => {
+              setDigestSending(true);
+              setDigestError(null);
+              try {
+                const res = await fetch("/api/digest", { method: "POST" });
+                const data = await res.json();
+                if (res.ok) {
+                  setDigestSent(true);
+                  setTimeout(() => setDigestSent(false), 5000);
+                } else {
+                  setDigestError(data.error ?? "Failed to send");
+                }
+              } catch {
+                setDigestError("Network error — try again");
+              } finally {
+                setDigestSending(false);
+              }
+            }}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors shrink-0 ${
+              digestSent
+                ? "bg-mint/20 text-mint border border-mint/30"
+                : "bg-coral/20 text-coral border border-coral/30 hover:bg-coral/30"
+            } disabled:opacity-60`}
+          >
+            {digestSending ? (
+              <RefreshCw size={13} className="animate-spin" />
+            ) : digestSent ? (
+              <CheckCircle size={13} />
+            ) : (
+              <Mail size={13} />
+            )}
+            {digestSending
+              ? "Sending..."
+              : digestSent
+                ? "Sent!"
+                : "Send digest"}
+          </motion.button>
+        </div>
+        {digestError && (
+          <p className="mt-2 text-xs text-coral">{digestError}</p>
+        )}
       </div>
     </div>
   );
