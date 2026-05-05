@@ -8,7 +8,7 @@ values (
   'audio',
   true,
   26214400, -- 25 MB limit
-  array['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'audio/wav']
+  array['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'audio/wav', 'audio/ogg; codecs=opus', 'audio/webm; codecs=opus']
 ) on conflict (id) do nothing;
 
 -- Allow anon (and service role) to upload audio files

@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Mic, Square, RotateCcw, Send, Loader2 } from "lucide-react";
+import {
+  Mic,
+  Square,
+  RotateCcw,
+  Send,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LiveWaveform } from "@/components/ui/waveform";
 import { TagChip } from "@/components/ui/tag-chip";
@@ -19,6 +26,7 @@ export function Recorder() {
     transcript,
     extractions,
     processingStep,
+    processingError,
     maxDuration,
     startCountdown,
     stopRecording,
@@ -215,6 +223,28 @@ export function Recorder() {
               </h3>
               <p className="text-sm text-cream-dim">{processingStep}</p>
             </div>
+
+            {processingError && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="w-full bg-coral/10 rounded-xl p-4 border border-coral/30 flex items-start gap-3"
+              >
+                <AlertCircle size={16} className="text-coral shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-coral font-medium mb-0.5">
+                    Pipeline error
+                  </p>
+                  <p className="text-xs text-cream-dim">{processingError}</p>
+                  <button
+                    onClick={reset}
+                    className="text-xs text-coral underline mt-2"
+                  >
+                    Try again
+                  </button>
+                </div>
+              </motion.div>
+            )}
 
             {transcript && (
               <motion.div

@@ -2,47 +2,76 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle, TrendingUp } from "lucide-react";
+import { AlertTriangle, TrendingUp, RefreshCw } from "lucide-react";
 import { Sparkline } from "@/components/ui/sparkline";
 import { mockPulseMetrics, mockInsights } from "@/lib/mock-data";
 import { PulseMetrics, AIInsight } from "@/types";
 
 export function PulseView() {
-  const [metrics, setMetrics] = useState<PulseMetrics>(mockPulseMetrics);
-  const [insights, setInsights] = useState<AIInsight[]>(mockInsights);
+  const [metrics, setMetrics] = useState<PulseMetrics | null>(null);
+  const [insights, setInsights] = useState<AIInsight[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isMock, setIsMock] = useState(false);
 
   useEffect(() => {
     async function fetchPulse() {
+      setLoading(true);
       try {
         const res = await fetch("/api/pulse");
         if (res.ok) {
           const data = await res.json();
           if (data.metrics) setMetrics(data.metrics);
           if (data.insights?.length) setInsights(data.insights);
+          setIsMock(data.fallback === true);
         }
       } catch {
-        // keep mock data
+        setMetrics(mockPulseMetrics);
+        setInsights(mockInsights);
+        setIsMock(true);
+      } finally {
+        setLoading(false);
       }
     }
     fetchPulse();
   }, []);
 
-  const totalBlockers = metrics.blocker_frequency.reduce((a, b) => a + b, 0);
+  const displayMetrics = metrics ?? mockPulseMetrics;
+
+  const totalBlockers = displayMetrics.blocker_frequency.reduce(
+    (a, b) => a + b,
+    0,
+  );
   const avgResolution =
-    metrics.resolution_time.reduce((a, b) => a + b, 0) /
-    metrics.resolution_time.length;
+    displayMetrics.resolution_time.reduce((a, b) => a + b, 0) /
+    displayMetrics.resolution_time.length;
   const latestSentiment =
-    metrics.sentiment_trend[metrics.sentiment_trend.length - 1];
-  const firstSentiment = metrics.sentiment_trend[0];
+    displayMetrics.sentiment_trend[displayMetrics.sentiment_trend.length - 1];
+  const firstSentiment = displayMetrics.sentiment_trend[0];
   const sentimentDelta = Math.round((latestSentiment - firstSentiment) * 100);
+
+  if (loading) {
+    return (
+      <div className="pt-16 pb-20 px-4 max-w-lg mx-auto flex flex-col items-center justify-center min-h-[60vh]">
+        <RefreshCw size={28} className="text-coral animate-spin mb-3" />
+        <p className="text-sm text-cream-dim">Loading team pulse...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="pt-16 pb-20 px-4 max-w-lg mx-auto">
-      <div className="mb-4">
-        <h1 className="text-lg font-semibold">Team Pulse</h1>
-        <p className="text-xs text-cream-dim mt-1">
-          A mirror for your team, not a manager dashboard.
-        </p>
+      <div className="mb-4 flex items-start justify-between">
+        <div>
+          <h1 className="text-lg font-semibold">Team Pulse</h1>
+          <p className="text-xs text-cream-dim mt-1">
+            A mirror for your team, not a manager dashboard.
+          </p>
+        </div>
+        {isMock && (
+          <span className="text-xs text-cream-dim bg-white/5 border border-white/10 rounded-full px-2 py-0.5">
+            demo data
+          </span>
+        )}
       </div>
 
       {insights.length > 0 && (
@@ -67,10 +96,7 @@ export function PulseView() {
                   className="text-amber-400 shrink-0 mt-0.5"
                 />
               ) : (
-                <TrendingUp
-                  size={16}
-                  className="text-mint shrink-0 mt-0.5"
-                />
+                <TrendingUp size={16} className="text-mint shrink-0 mt-0.5" />
               )}
               <p className="text-sm text-cream/80">{insight.message}</p>
             </motion.div>
@@ -80,40 +106,44 @@ export function PulseView() {
 
       <div className="grid grid-cols-2 gap-3">
         <Sparkline
-          data={metrics.blocker_frequency}
+          data={displayMetrics.blocker_frequency}
           color="coral"
           label="Blockers / Day"
           value={String(
-            metrics.blocker_frequency[metrics.blocker_frequency.length - 1]
+            displayMetrics.blocker_frequency[
+              displayMetrics.blocker_frequency.length - 1
+            ],
           )}
           unit="today"
         />
         <Sparkline
-          data={metrics.resolution_time}
+          data={displayMetrics.resolution_time}
           color="amber"
           label="Resolution Time"
-          value={
-            metrics.resolution_time[
-              metrics.resolution_time.length - 1
-            ].toFixed(1)
-          }
+          value={displayMetrics.resolution_time[
+            displayMetrics.resolution_time.length - 1
+          ].toFixed(1)}
           unit="hrs avg"
         />
         <Sparkline
-          data={metrics.participation}
+          data={displayMetrics.participation}
           color="mint"
           label="Participation"
           value={String(
-            metrics.participation[metrics.participation.length - 1]
+            displayMetrics.participation[
+              displayMetrics.participation.length - 1
+            ],
           )}
           unit="% today"
         />
         <Sparkline
-          data={metrics.sentiment_trend}
+          data={displayMetrics.sentiment_trend}
           color="blue"
           label="Sentiment"
           value={Math.round(
-            metrics.sentiment_trend[metrics.sentiment_trend.length - 1] * 100
+            displayMetrics.sentiment_trend[
+              displayMetrics.sentiment_trend.length - 1
+            ] * 100,
           ).toString()}
           unit="% positive"
         />

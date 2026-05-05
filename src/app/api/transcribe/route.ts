@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const FALLBACK_TRANSCRIPT =
-  "Yesterday I shipped the login flow with OAuth — feels good to finally have that done. Today I'm refactoring the dashboard components. I'm blocked though — the staging DB keeps throwing 500 errors and I need infra access. Marco, if you could grant me those staging credentials, that would unblock me.";
-
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
-  const audio = formData.get("audio") as Blob;
+  const audio = formData.get("audio") as File | null;
 
   if (!audio) {
     return NextResponse.json({ error: "No audio provided" }, { status: 400 });
@@ -13,37 +10,105 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.DEEPGRAM_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ transcript: FALLBACK_TRANSCRIPT, fallback: true });
+    console.error("[transcribe] DEEPGRAM_API_KEY not set");
+    return NextResponse.json(
+      { error: "Transcription service not configured" },
+      { status: 503 },
+    );
   }
 
   try {
     const buffer = Buffer.from(await audio.arrayBuffer());
+    // Browsers strip codec params from FormData blobs (audio/webm;codecs=opus → audio/webm)
+    // Deepgram needs the full codec string to properly decode opus in webm containers
+    const receivedType = audio.type || "audio/webm";
+    let deepgramContentType = receivedType;
+    if (receivedType === "audio/webm" || receivedType === "audio/ogg") {
+      deepgramContentType = receivedType + ";codecs=opus";
+    }
 
-    const response = await fetch(
-      "https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&detect_language=true",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Token ${apiKey}`,
-          "Content-Type": "audio/webm",
-        },
-        body: buffer,
-      }
+    console.log(
+      `[transcribe] sending to Deepgram — size: ${buffer.byteLength}b, type: ${deepgramContentType}`,
     );
 
+    if (buffer.byteLength < 1000) {
+      console.warn(
+        "[transcribe] audio buffer suspiciously small — may be empty",
+      );
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    let response: Response;
+    try {
+      response = await fetch(
+        "https://api.deepgram.com/v1/listen?model=nova-2&punctuate=true&language=en",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Token ${apiKey}`,
+            "Content-Type": deepgramContentType,
+          },
+          body: buffer,
+          signal: controller.signal,
+        },
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+
     if (!response.ok) {
-      return NextResponse.json({ transcript: FALLBACK_TRANSCRIPT, fallback: true });
+      const errBody = await response.text().catch(() => "");
+      console.error("[transcribe] Deepgram error:", response.status, errBody);
+      return NextResponse.json(
+        { error: `Deepgram error ${response.status}` },
+        { status: 502 },
+      );
     }
 
     const data = await response.json();
+    const duration = data.metadata?.duration ?? 0;
     const transcript =
-      data.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
+      data.results?.channels?.[0]?.alternatives?.[0]?.transcript ?? "";
 
-    return NextResponse.json({
-      transcript: transcript || FALLBACK_TRANSCRIPT,
-      fallback: !transcript,
-    });
-  } catch {
-    return NextResponse.json({ transcript: FALLBACK_TRANSCRIPT, fallback: true });
+    console.log(
+      `[transcribe] Deepgram response — duration: ${duration}s, transcript length: ${transcript.length}`,
+    );
+
+    if (!transcript) {
+      if (duration === 0) {
+        console.warn(
+          "[transcribe] Deepgram saw 0s audio — buffer may be malformed",
+        );
+        return NextResponse.json(
+          { error: "Recording appears empty — please try again" },
+          { status: 422 },
+        );
+      }
+      console.warn(
+        "[transcribe] Deepgram returned empty transcript:",
+        JSON.stringify(data.results),
+      );
+      return NextResponse.json(
+        { error: "No speech detected — speak clearly and try again" },
+        { status: 422 },
+      );
+    }
+
+    return NextResponse.json({ transcript });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      console.error("[transcribe] Deepgram request timed out after 15s");
+      return NextResponse.json(
+        { error: "Transcription timed out — try a shorter recording" },
+        { status: 504 },
+      );
+    }
+    console.error("[transcribe] exception:", err);
+    return NextResponse.json(
+      { error: "Transcription failed" },
+      { status: 500 },
+    );
   }
 }
