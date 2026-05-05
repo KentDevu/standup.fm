@@ -179,6 +179,28 @@ export function DropCard({ drop, index }: { drop: Drop; index: number }) {
           </div>
         )}
 
+        {/* @mentions chips — deduplicated across all extractions */}
+        {(() => {
+          const names = [
+            ...new Set(
+              drop.extractions?.flatMap((e) => e.mentions ?? []) ?? [],
+            ),
+          ].filter(Boolean);
+          if (!names.length) return null;
+          return (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {names.map((name) => (
+                <span
+                  key={name}
+                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-mint/10 text-mint border border-mint/20"
+                >
+                  @{name}
+                </span>
+              ))}
+            </div>
+          );
+        })()}
+
         <button
           onClick={() => setExpanded(!expanded)}
           className="flex items-center gap-1 mt-3 text-xs text-cream-dim hover:text-cream transition-colors"
