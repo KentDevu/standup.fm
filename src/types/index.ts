@@ -25,6 +25,7 @@ export interface Drop {
   created_at: string;
   user?: User;
   extractions?: Extraction[];
+  reactions?: Reaction[];
 }
 
 export type ExtractionType = "blocker" | "ask" | "win" | "decision";

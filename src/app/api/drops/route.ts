@@ -18,7 +18,7 @@ export async function GET() {
     const supabase = getSupabase();
     const { data: drops, error } = await supabase
       .from("drops")
-      .select(`*, user:users(*), extractions(*)`)
+      .select(`*, user:users(*), extractions(*), reactions(*)`)
       .order("created_at", { ascending: false })
       .limit(20);
 
