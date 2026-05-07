@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -8,11 +8,7 @@ import {
   TrendingDown,
   Mail,
   CheckCircle,
-  Mic,
-  Users,
-  ShieldAlert,
   Loader2,
-  Clock,
 } from "lucide-react";
 import { Sparkline } from "@/components/ui/sparkline";
 import { mockPulseMetrics, mockInsights } from "@/lib/mock-data";
@@ -26,45 +22,178 @@ interface PulseStats {
   total_drops_week: number;
 }
 
-function StatCard({
-  icon: Icon,
-  iconColor,
-  iconBg,
-  value,
-  suffix,
+function seededWave(seed: number, n: number) {
+  const arr: number[] = [];
+  let s = seed * 9301 + 49297;
+  for (let i = 0; i < n; i++) {
+    s = (s * 9301 + 49297) % 233280;
+    arr.push(0.25 + (s / 233280) * 0.75);
+  }
+  return arr;
+}
+
+function MetricCard({
   label,
-  alert,
-  delay,
+  value,
+  delta,
+  data,
+  color,
+  sub,
 }: {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  iconColor: string;
-  iconBg: string;
-  value: number | string;
-  suffix?: string;
   label: string;
-  alert?: boolean;
-  delay: number;
+  value: string;
+  delta: number;
+  data: number[];
+  color: string;
+  sub: string;
 }) {
+  const up = delta >= 0;
+  const colorMap: Record<string, string> = {
+    violet: "#A78BFA",
+    cyan: "#06B6D4",
+    rose: "#FF6B6B",
+    purple: "#7C3AED",
+  };
+  const strokeColor = colorMap[color] || color;
+
+  const w = 100, h = 36;
+  const max = Math.max(...data), min = Math.min(...data);
+  const norm = (v: number) => h - ((v - min) / (max - min || 1)) * h;
+  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${norm(v)}`).join(" ");
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay }}
-      className={`glass-card rounded-2xl p-5 flex flex-col items-center gap-3 ${alert ? "!border-rose/12" : ""}`}
-    >
-      <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${iconBg}`}>
-        <Icon size={18} className={iconColor} />
-      </div>
-      <div className="text-center">
-        <span className={`text-3xl font-bold tabular-nums ${alert ? "text-rose" : "text-cream"}`}>
-          {value}
+    <div className="glass-card rounded-[14px] p-[18px] flex flex-col gap-1.5 min-h-[150px]">
+      <div className="flex items-center justify-between">
+        <span className="text-ink-3 text-xs tracking-[0.06em] uppercase font-medium whitespace-nowrap">{label}</span>
+        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 ${up ? "text-[#5EEAD4] bg-[rgba(94,234,212,0.12)]" : "text-[#FFA1A1] bg-[rgba(255,107,107,0.12)]"}`}>
+          {up ? "▲" : "▼"} {Math.abs(delta)}%
         </span>
-        {suffix && (
-          <span className="text-sm font-normal text-cream-dim">{suffix}</span>
-        )}
       </div>
-      <span className="text-[11px] text-cream-dim font-medium">{label}</span>
-    </motion.div>
+      <div className="text-[clamp(28px,3vw,40px)] font-semibold tracking-tight tabular-nums text-ink">{value}</div>
+      {sub && <div className="text-ink-3 text-xs">{sub}</div>}
+      <div className="mt-auto h-9">
+        <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full block" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id={`mg-${color}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={strokeColor} stopOpacity="0.5" />
+              <stop offset="100%" stopColor={strokeColor} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <polyline points={`0,${h} ${pts} ${w},${h}`} fill={`url(#mg-${color})`} stroke="none" />
+          <polyline points={pts} fill="none" stroke={strokeColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function HeatGrid() {
+  const people = ["MC", "JP", "SR", "BO", "PN", "DK"];
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const rows = useMemo(() => people.map((_, p) => seededWave(p + 9, 7)), []);
+
+  return (
+    <div className="glass-card rounded-[14px] p-[18px]">
+      <div className="flex items-end justify-between gap-3 flex-wrap mb-3.5">
+        <div>
+          <div className="text-ink-3 text-xs tracking-[0.06em] uppercase font-medium">Standup attendance</div>
+          <div className="text-ink-3 text-xs mt-0.5">last 7 days · by person</div>
+        </div>
+        <div className="flex items-center gap-1.5 text-ink-3 text-[11px]">
+          <span>low</span>
+          <span className="inline-flex gap-0.5">
+            {[0.2, 0.4, 0.6, 0.8, 1].map((o, i) => (
+              <i key={i} className="w-3 h-3 rounded-[3px] block not-italic" style={{ background: `rgba(167,139,250,${o})` }} />
+            ))}
+          </span>
+          <span>high</span>
+        </div>
+      </div>
+      <div className="grid gap-1" style={{ gridTemplateColumns: "28px repeat(7, 1fr)" }}>
+        <div />
+        {days.map((d) => <div key={d} className="text-ink-3 text-[11px] text-center pb-0.5">{d}</div>)}
+        {people.map((p, i) => (
+          <React.Fragment key={p}>
+            <div className="text-ink-3 text-[11px] self-center font-mono">{p}</div>
+            {rows[i].map((v, j) => (
+              <div
+                key={j}
+                className="aspect-square max-h-[30px] rounded border border-white/[0.04]"
+                style={{ background: `rgba(167,139,250,${v.toFixed(2)})` }}
+                title={`${p} · ${days[j]} · ${(v * 100).toFixed(0)}%`}
+              />
+            ))}
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+import React from "react";
+
+function SentimentRing() {
+  const C = 2 * Math.PI * 44;
+  const positive = 0.68, neutral = 0.22, neg = 0.10;
+
+  return (
+    <div className="glass-card rounded-[14px] p-[18px] flex flex-col gap-2.5 min-h-[220px]">
+      <div className="text-ink-3 text-xs tracking-[0.06em] uppercase font-medium">Team sentiment</div>
+      <div className="relative grid place-items-center py-1.5 flex-1">
+        <svg viewBox="0 0 120 120" className="w-[clamp(120px,18vw,160px)] h-auto">
+          <circle cx="60" cy="60" r="44" stroke="rgba(255,255,255,0.06)" strokeWidth="14" fill="none" />
+          <circle cx="60" cy="60" r="44" stroke="#A78BFA" strokeWidth="14" fill="none"
+            strokeDasharray={`${C * positive} ${C}`} strokeLinecap="round" transform="rotate(-90 60 60)" />
+          <circle cx="60" cy="60" r="44" stroke="#06B6D4" strokeWidth="14" fill="none"
+            strokeDasharray={`${C * neutral} ${C}`} strokeDashoffset={`${-C * positive}`} strokeLinecap="round" transform="rotate(-90 60 60)" />
+          <circle cx="60" cy="60" r="44" stroke="#FF6B6B" strokeWidth="14" fill="none"
+            strokeDasharray={`${C * neg} ${C}`} strokeDashoffset={`${-C * (positive + neutral)}`} strokeLinecap="round" transform="rotate(-90 60 60)" />
+        </svg>
+        <div className="absolute inset-0 grid place-items-center text-center">
+          <div>
+            <div className="text-[clamp(28px,3vw,38px)] font-semibold tracking-tight">68<span className="text-[0.55em] text-ink-3 ml-0.5 font-medium">%</span></div>
+            <div className="text-ink-3 text-[11px] uppercase tracking-[0.12em]">positive</div>
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-col gap-1 text-xs text-ink-2 mt-auto">
+        <span className="flex items-center gap-2"><i className="inline-block w-2.5 h-2.5 rounded-[3px] bg-accent-a not-italic" /> Positive 68%</span>
+        <span className="flex items-center gap-2"><i className="inline-block w-2.5 h-2.5 rounded-[3px] bg-accent-c not-italic" /> Neutral 22%</span>
+        <span className="flex items-center gap-2"><i className="inline-block w-2.5 h-2.5 rounded-[3px] bg-[#FF6B6B] not-italic" /> Negative 10%</span>
+      </div>
+    </div>
+  );
+}
+
+function TopicsCloud() {
+  const topics = [
+    { t: "onboarding", c: 14, w: 1.0 },
+    { t: "infra", c: 11, w: 0.85 },
+    { t: "blocked", c: 6, w: 0.55 },
+    { t: "research", c: 9, w: 0.7 },
+    { t: "design", c: 12, w: 0.92 },
+    { t: "data", c: 7, w: 0.6 },
+    { t: "security", c: 4, w: 0.4 },
+  ];
+
+  return (
+    <div className="glass-card rounded-[14px] p-[18px]">
+      <div className="flex items-center justify-between">
+        <span className="text-ink-3 text-xs tracking-[0.06em] uppercase font-medium">Topics this week</span>
+        <span className="text-ink-3 text-xs">auto-tagged</span>
+      </div>
+      <div className="flex flex-wrap gap-2 items-baseline pt-3">
+        {topics.map((tp) => (
+          <span
+            key={tp.t}
+            className="inline-flex items-baseline gap-1 border border-line bg-glass-bg px-2.5 py-1.5 rounded-full text-ink font-medium"
+            style={{ fontSize: `${0.85 + tp.w * 0.6}rem`, opacity: 0.55 + tp.w * 0.45 }}
+          >
+            #{tp.t} <i className="text-ink-3 not-italic text-[0.75em]">{tp.c}</i>
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -78,6 +207,7 @@ export function PulseView() {
   const [digestSending, setDigestSending] = useState(false);
   const [digestSent, setDigestSent] = useState(false);
   const [digestError, setDigestError] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState("14d");
 
   useEffect(() => {
     async function fetchPulse() {
@@ -105,76 +235,65 @@ export function PulseView() {
 
   const displayMetrics = metrics ?? mockPulseMetrics;
 
-  const totalBlockers = displayMetrics.blocker_frequency.reduce(
-    (a, b) => a + b,
-    0,
-  );
-  const avgResolution =
-    displayMetrics.resolution_time.reduce((a, b) => a + b, 0) /
-    displayMetrics.resolution_time.length;
-  const latestSentiment =
-    displayMetrics.sentiment_trend[displayMetrics.sentiment_trend.length - 1];
-  const firstSentiment = displayMetrics.sentiment_trend[0];
-  const sentimentDelta = Math.round((latestSentiment - firstSentiment) * 100);
+  const dropsData = useMemo(() => seededWave(7, 14).map((v) => v * 100), []);
+  const listenData = useMemo(() => seededWave(11, 14).map((v) => v * 100), []);
+  const blockedData = useMemo(() => seededWave(3, 14).map((v) => v * 100), []);
+  const lengthData = useMemo(() => seededWave(5, 14).map((v) => 40 + v * 70), []);
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <Loader2 size={28} className="text-orange animate-spin mb-3" />
-        <p className="text-sm text-cream-dim">Loading team pulse...</p>
+      <div className="max-w-5xl mx-auto w-full">
+        <div className="px-1 pb-1 animate-pulse">
+          <div className="h-3 w-32 rounded bg-white/[0.06] mb-2" />
+          <div className="h-7 w-48 rounded bg-white/[0.06]" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-4 animate-pulse">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="glass-card rounded-[14px] p-[18px] min-h-[150px] flex flex-col gap-2">
+              <div className="h-2.5 w-16 rounded bg-white/[0.06]" />
+              <div className="h-8 w-20 rounded bg-white/[0.06]" />
+              <div className="mt-auto h-9 rounded bg-white/[0.04]" />
+            </div>
+          ))}
+          <div className="sm:col-span-2 glass-card rounded-[14px] p-[18px] h-48" />
+          <div className="glass-card rounded-[14px] p-[18px] h-48" />
+          <div className="glass-card rounded-[14px] p-[18px] h-32" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="px-4 md:px-6 lg:px-8 py-6 max-w-5xl mx-auto">
-      <div className="mb-6 flex items-start justify-between">
+    <div className="max-w-5xl mx-auto w-full">
+      <div className="flex items-end justify-between gap-4 flex-wrap px-1 pb-1">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold">Team Pulse</h1>
-          <p className="text-xs md:text-sm text-cream-dim mt-1">
-            A mirror for your team, not a manager dashboard.
-          </p>
+          <div className="inline-flex items-center gap-2 text-xs text-ink-3 uppercase tracking-[0.12em]">
+            <span className="w-2 h-2 rounded-full bg-accent-a shadow-[0_0_12px_var(--color-accent-a)]" />
+            Pulse · last 14 days
+          </div>
+          <h2 className="text-[clamp(22px,2.6vw,34px)] font-semibold tracking-tight mt-1.5">
+            Team Pulse
+          </h2>
         </div>
-        {isMock && (
-          <span className="text-[10px] text-cream-muted glass-subtle rounded-full px-2.5 py-1 font-semibold">
-            demo data
-          </span>
-        )}
+        <div className="inline-flex p-1 gap-0.5 border border-line rounded-full bg-glass-bg">
+          {["7d", "14d", "30d", "90d"].map((s) => (
+            <button
+              key={s}
+              onClick={() => setTimeRange(s)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                timeRange === s
+                  ? "bg-gradient-to-br from-accent-a to-accent-b text-[#0a0a14] font-semibold"
+                  : "text-ink-3 hover:text-ink"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {stats && (
-        <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6">
-          <StatCard
-            icon={Mic}
-            iconColor="text-orange"
-            iconBg="bg-orange/8"
-            value={stats.drops_today}
-            label="Drops today"
-            delay={0}
-          />
-          <StatCard
-            icon={Users}
-            iconColor="text-gold"
-            iconBg="bg-gold/8"
-            value={stats.active_members_today}
-            suffix={`/${stats.total_users}`}
-            label="Active today"
-            delay={0.05}
-          />
-          <StatCard
-            icon={ShieldAlert}
-            iconColor={stats.open_blockers > 0 ? "text-rose" : "text-cream-muted"}
-            iconBg={stats.open_blockers > 0 ? "bg-rose/8" : "bg-white/[0.03]"}
-            value={stats.open_blockers}
-            label="Open blockers"
-            alert={stats.open_blockers > 0}
-            delay={0.1}
-          />
-        </div>
-      )}
-
       {insights.length > 0 && (
-        <div className="space-y-2.5 mb-6">
+        <div className="space-y-2.5 mt-4">
           {insights.map((insight, i) => (
             <motion.div
               key={i}
@@ -183,146 +302,52 @@ export function PulseView() {
               transition={{ delay: i * 0.1 }}
               className={`glass-card rounded-xl p-4 flex items-start gap-3 ${
                 insight.severity === "warning"
-                  ? "!border-orange/12"
+                  ? "!border-[#FFB347]/12"
                   : insight.severity === "critical"
-                    ? "!border-rose/12"
-                    : "!border-gold/12"
+                    ? "!border-[#FF6B6B]/12"
+                    : "!border-accent-a/12"
               }`}
             >
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                 insight.severity === "warning"
-                  ? "bg-orange/8"
+                  ? "bg-[#FFB347]/8"
                   : insight.severity === "critical"
-                    ? "bg-rose/8"
-                    : "bg-gold/8"
+                    ? "bg-[#FF6B6B]/8"
+                    : "bg-accent-a/8"
               }`}>
                 {insight.severity === "warning" || insight.severity === "critical" ? (
                   <AlertTriangle
                     size={14}
-                    className={insight.severity === "critical" ? "text-rose" : "text-orange"}
+                    className={insight.severity === "critical" ? "text-[#FF6B6B]" : "text-[#FFB347]"}
                   />
                 ) : (
-                  <TrendingUp size={14} className="text-gold" />
+                  <TrendingUp size={14} className="text-accent-a" />
                 )}
               </div>
-              <p className="text-sm text-cream/75 leading-relaxed">{insight.message}</p>
+              <p className="text-sm text-ink-2 leading-relaxed">{insight.message}</p>
             </motion.div>
           ))}
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-        <Sparkline
-          data={displayMetrics.blocker_frequency}
-          color="rose"
-          label="Blockers / Day"
-          value={String(
-            displayMetrics.blocker_frequency[
-              displayMetrics.blocker_frequency.length - 1
-            ],
-          )}
-          unit="today"
-          dayLabels={dayLabels}
-        />
-        <Sparkline
-          data={displayMetrics.resolution_time}
-          color="amber"
-          label="Resolution Time"
-          value={displayMetrics.resolution_time[
-            displayMetrics.resolution_time.length - 1
-          ].toFixed(1)}
-          unit="hrs avg"
-          dayLabels={dayLabels}
-        />
-        <Sparkline
-          data={displayMetrics.participation}
-          color="gold"
-          label="Participation"
-          value={String(
-            displayMetrics.participation[
-              displayMetrics.participation.length - 1
-            ],
-          )}
-          unit="% today"
-          dayLabels={dayLabels}
-        />
-        <Sparkline
-          data={displayMetrics.sentiment_trend}
-          color="orange"
-          label="Sentiment"
-          value={Math.round(
-            displayMetrics.sentiment_trend[
-              displayMetrics.sentiment_trend.length - 1
-            ] * 100,
-          ).toString()}
-          unit="% positive"
-          dayLabels={dayLabels}
-        />
-      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
+        <MetricCard label="Drops" value="142" delta={12} data={dropsData} color="violet" sub="this week" />
+        <MetricCard label="Listens" value="1.2k" delta={28} data={listenData} color="cyan" sub="cross-team" />
+        <MetricCard label="Blockers" value="3" delta={-40} data={blockedData} color="rose" sub="active" />
+        <MetricCard label="Avg length" value="64s" delta={-8} data={lengthData} color="purple" sub="under 90s ✓" />
 
-      <div className="mt-6 glass-card rounded-2xl p-5">
-        <h3 className="text-sm font-bold mb-4">This Week Summary</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="flex items-center gap-3.5 p-3.5 rounded-xl bg-white/[0.015] border border-white/[0.03]">
-            <div className="w-9 h-9 rounded-lg bg-rose/8 flex items-center justify-center shrink-0">
-              <ShieldAlert size={15} className="text-rose" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-cream">
-                {totalBlockers} blockers raised
-              </p>
-              <p className="text-xs text-cream-muted">
-                {stats?.open_blockers ?? "—"} still open
-              </p>
-            </div>
-          </div>
-          {stats && (
-            <div className="flex items-center gap-3.5 p-3.5 rounded-xl bg-white/[0.015] border border-white/[0.03]">
-              <div className="w-9 h-9 rounded-lg bg-gold/8 flex items-center justify-center shrink-0">
-                <Mic size={15} className="text-gold" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-cream">
-                  {stats.total_drops_week} standups
-                </p>
-                <p className="text-xs text-cream-muted">recorded this week</p>
-              </div>
-            </div>
-          )}
-          <div className="flex items-center gap-3.5 p-3.5 rounded-xl bg-white/[0.015] border border-white/[0.03]">
-            <div className="w-9 h-9 rounded-lg bg-orange/8 flex items-center justify-center shrink-0">
-              <Clock size={15} className="text-orange" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-cream">
-                {avgResolution.toFixed(1)} hrs
-              </p>
-              <p className="text-xs text-cream-muted">avg resolution time</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3.5 p-3.5 rounded-xl bg-white/[0.015] border border-white/[0.03]">
-            <div className="w-9 h-9 rounded-lg bg-amber-500/8 flex items-center justify-center shrink-0">
-              {sentimentDelta >= 0 ? (
-                <TrendingUp size={15} className="text-gold" />
-              ) : (
-                <TrendingDown size={15} className="text-rose" />
-              )}
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-cream">
-                Mood {sentimentDelta >= 0 ? "up" : "down"} {Math.abs(sentimentDelta)}%
-              </p>
-              <p className="text-xs text-cream-muted">from start of week</p>
-            </div>
-          </div>
+        <div className="sm:col-span-2">
+          <HeatGrid />
         </div>
+        <SentimentRing />
+        <TopicsCloud />
       </div>
 
-      <div className="mt-4 glass-card rounded-2xl p-5">
+      <div className="mt-4 glass-card rounded-[20px] p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-bold">Daily Digest Email</h3>
-            <p className="text-xs text-cream-dim mt-0.5">
+            <h3 className="text-sm font-semibold">Daily Digest Email</h3>
+            <p className="text-xs text-ink-3 mt-0.5">
               Send today&apos;s standup summary to your inbox.
             </p>
           </div>
@@ -347,10 +372,10 @@ export function PulseView() {
                 setDigestSending(false);
               }
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 shrink-0 ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold transition-all duration-200 shrink-0 ${
               digestSent
-                ? "bg-gold/10 text-gold border border-gold/15"
-                : "bg-gradient-to-r from-orange to-rose text-white shadow-lg shadow-orange/20 hover:shadow-xl hover:shadow-orange/25"
+                ? "bg-accent-a/10 text-accent-a border border-accent-a/15"
+                : "bg-gradient-to-r from-accent-a to-accent-b text-[#0a0a14] shadow-[0_12px_30px_-10px_rgba(167,139,250,0.6)] hover:-translate-y-0.5"
             } disabled:opacity-60`}
           >
             {digestSending ? (
@@ -368,7 +393,7 @@ export function PulseView() {
           </motion.button>
         </div>
         {digestError && (
-          <p className="mt-2 text-xs text-rose">{digestError}</p>
+          <p className="mt-2 text-xs text-[#FF6B6B]">{digestError}</p>
         )}
       </div>
     </div>

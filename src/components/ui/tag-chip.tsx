@@ -9,27 +9,27 @@ const tagConfig: Record<
 > = {
   win: {
     icon: "✦",
-    bg: "bg-gold/8",
-    text: "text-gold",
-    border: "border-gold/15",
+    bg: "bg-accent-a/8",
+    text: "text-accent-a",
+    border: "border-accent-a/15",
   },
   blocker: {
     icon: "⚡",
-    bg: "bg-rose/8",
-    text: "text-rose",
-    border: "border-rose/15",
+    bg: "bg-[#FF6B6B]/8",
+    text: "text-[#FF6B6B]",
+    border: "border-[#FF6B6B]/15",
   },
   ask: {
     icon: "◉",
-    bg: "bg-orange/8",
-    text: "text-orange",
-    border: "border-orange/15",
+    bg: "bg-accent-c/8",
+    text: "text-accent-c",
+    border: "border-accent-c/15",
   },
   decision: {
     icon: "◆",
-    bg: "bg-amber-400/8",
-    text: "text-amber-400",
-    border: "border-amber-400/15",
+    bg: "bg-[#FFD166]/8",
+    text: "text-[#FFD166]",
+    border: "border-[#FFD166]/15",
   },
 };
 
@@ -55,13 +55,13 @@ export function TagChip({
       {(type === "blocker" || type === "ask") && !resolved && onResolve && (
         <button
           onClick={onResolve}
-          className="ml-1 px-2 py-0.5 bg-gold/12 text-gold rounded-md text-[10px] font-bold hover:bg-gold/20 transition-colors border border-gold/15"
+          className="ml-1 px-2 py-0.5 bg-accent-a/12 text-accent-a rounded-md text-[10px] font-bold hover:bg-accent-a/20 transition-colors border border-accent-a/15"
         >
           I got this
         </button>
       )}
       {resolved && (
-        <Check size={10} className="text-gold" />
+        <Check size={10} className="text-accent-a" />
       )}
     </div>
   );

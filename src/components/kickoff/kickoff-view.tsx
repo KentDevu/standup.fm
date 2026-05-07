@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Headphones, Play, Pause, Sparkles, Clock } from "lucide-react";
+import { Play, Pause, Sparkles, Clock, ArrowRight, Check } from "lucide-react";
 
 const FALLBACK_ITEMS = [
   "While you were away, the team shipped 3 features and resolved 5 blockers.",
@@ -13,19 +13,57 @@ const FALLBACK_ITEMS = [
   "Team sentiment is up 8% this week. No critical unresolved items blocking your work directly.",
 ];
 
-function formatTimestamp(index: number) {
-  const seconds = index * 15;
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+function seededWave(seed: number, n: number) {
+  const arr: number[] = [];
+  let s = seed * 9301 + 49297;
+  for (let i = 0; i < n; i++) {
+    s = (s * 9301 + 49297) % 233280;
+    arr.push(0.25 + (s / 233280) * 0.75);
+  }
+  return arr;
+}
+
+const CHAPTERS = [
+  { t: 0, label: "Yesterday", note: "Onboarding v3 shipped · realtime layer migrated" },
+  { t: 42, label: "Today", note: "Empty-state polish · 2FA staff rollout · RFC review" },
+  { t: 96, label: "Blockers", note: "Realtime needs security review (Jordan)" },
+  { t: 132, label: "Vibes", note: "Sentiment up 8% — onboarding win felt by all" },
+];
+
+function HighlightItem({ color, label, bold }: { color: string; label: string; bold: string }) {
+  return (
+    <li className="text-ink-2 text-sm flex items-center gap-2.5">
+      <span
+        className="w-2.5 h-2.5 rounded-full shrink-0"
+        style={{ background: color, boxShadow: `0 0 12px ${color}` }}
+      />
+      <span>{label} <b className="text-ink">{bold}</b></span>
+    </li>
+  );
+}
+
+function fmt(s: number) {
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 export function KickoffView() {
   const [generating, setGenerating] = useState(false);
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [pos, setPos] = useState(42);
   const [progress, setProgress] = useState(0);
   const [briefingItems, setBriefingItems] = useState<string[]>([]);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const total = 184;
+
+  const waveData = useMemo(() => seededWave(99, 80), []);
+
+  useEffect(() => {
+    if (!playing) return;
+    const id = setInterval(() => setPos((p) => Math.min(total, p + 1)), 1000);
+    return () => clearInterval(id);
+  }, [playing]);
 
   const handleGenerate = useCallback(async () => {
     setGenerating(true);
@@ -36,7 +74,7 @@ export function KickoffView() {
     }, 80);
 
     try {
-      let drops = [];
+      let drops: unknown[] = [];
       try {
         const dropsRes = await fetch("/api/drops");
         if (dropsRes.ok) drops = await dropsRes.json();
@@ -81,20 +119,13 @@ export function KickoffView() {
     } else {
       setPlaying(!playing);
       if (!playing) {
-        setTimeout(() => setPlaying(false), briefingItems.length * 15 * 1000);
+        setTimeout(() => setPlaying(false), total * 1000);
       }
     }
-  }, [playing, audioUrl, briefingItems.length]);
+  }, [playing, audioUrl]);
 
   return (
-    <div className="px-4 md:px-6 lg:px-8 py-6 max-w-3xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-xl md:text-2xl font-bold">Kickoff Briefing</h1>
-        <p className="text-xs md:text-sm text-cream-dim mt-1">
-          Back from PTO? Get caught up in 90 seconds.
-        </p>
-      </div>
-
+    <div className="max-w-5xl mx-auto w-full">
       {audioUrl && (
         <audio
           ref={audioRef}
@@ -106,40 +137,43 @@ export function KickoffView() {
 
       <AnimatePresence mode="wait">
         {!generating && !ready && (
-          <motion.div
+          <motion.section
             key="empty"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex flex-col items-center gap-8 mt-12 md:mt-20"
+            className="glass rounded-[20px] relative overflow-hidden flex flex-col items-center gap-3.5 text-center min-h-[60vh] justify-center p-[clamp(30px,5vw,60px)]"
           >
-            <div className="relative">
-              <div className="w-28 h-28 md:w-32 md:h-32 glass-card rounded-3xl flex items-center justify-center animate-breathe">
-                <Headphones size={48} className="text-cream-muted" />
+            <div
+              className="absolute w-[480px] h-[480px] rounded-full opacity-50 z-0"
+              style={{
+                background: "radial-gradient(circle, #A78BFA, transparent 60%)",
+                filter: "blur(60px)",
+              }}
+            />
+            <div className="relative z-10 flex flex-col items-center gap-3.5">
+              <h2 className="text-[clamp(22px,2.6vw,34px)] font-semibold tracking-tight mt-2">No briefing yet</h2>
+              <p className="text-ink-3 max-w-[50ch]">
+                When your team drops in, we&apos;ll generate a 90-second AI briefing here every morning at 9am.
+              </p>
+              <div className="flex gap-2.5 flex-wrap justify-center mt-1">
+                <button
+                  onClick={handleGenerate}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-br from-accent-a to-accent-b text-[#0a0a14] text-[13px] font-semibold shadow-[0_12px_30px_-10px_rgba(167,139,250,0.6)] hover:-translate-y-0.5 transition-all"
+                >
+                  Generate sample <Sparkles size={14} />
+                </button>
+                <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-line bg-glass-bg text-ink-2 text-[13px] font-medium hover:text-ink hover:border-line-2 transition-all">
+                  Schedule briefing
+                </button>
               </div>
-              <div className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-gradient-to-br from-orange to-rose flex items-center justify-center text-[10px] font-bold text-white shadow-lg shadow-orange/30 ring-2 ring-ember">
-                12
+              <div className="flex gap-4.5 flex-wrap justify-center text-ink-3 text-xs mt-3.5">
+                <span className="inline-flex items-center gap-1.5"><Check size={14} className="text-accent-a" /> Auto-summarizes every drop</span>
+                <span className="inline-flex items-center gap-1.5"><Check size={14} className="text-accent-a" /> Highlights blockers</span>
+                <span className="inline-flex items-center gap-1.5"><Check size={14} className="text-accent-a" /> Reads in your voice</span>
               </div>
             </div>
-            <div className="text-center">
-              <h2 className="text-xl md:text-2xl font-bold mb-2">Welcome back!</h2>
-              <p className="text-sm text-cream-dim">
-                You missed{" "}
-                <span className="text-orange font-semibold">12 drops</span> across
-                3 days.
-              </p>
-              <p className="text-sm text-cream-dim mt-1">
-                Generate a personalized audio briefing?
-              </p>
-            </div>
-            <button
-              onClick={handleGenerate}
-              className="flex items-center gap-2.5 px-8 py-4 bg-gradient-to-r from-orange via-[#F97316] to-rose rounded-xl text-white font-semibold shadow-xl shadow-orange/25 hover:shadow-2xl hover:shadow-orange/30 transition-all duration-300 active:scale-95"
-            >
-              <Sparkles size={18} />
-              Generate Kickoff
-            </button>
-          </motion.div>
+          </motion.section>
         )}
 
         {generating && (
@@ -148,29 +182,29 @@ export function KickoffView() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex flex-col items-center gap-8 mt-12 md:mt-20"
+            className="flex flex-col items-center gap-8 min-h-[60vh] justify-center"
           >
-            <div className="w-28 h-28 md:w-32 md:h-32 glass-card rounded-3xl flex items-center justify-center relative overflow-hidden !border-orange/15">
+            <div className="w-28 h-28 md:w-32 md:h-32 glass rounded-3xl flex items-center justify-center relative overflow-hidden !border-accent-a/15">
               <div
-                className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-orange/20 to-transparent transition-all duration-300"
+                className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-accent-a/20 to-transparent transition-all duration-300"
                 style={{ height: `${progress}%` }}
               />
               <Sparkles
                 size={48}
-                className="text-orange relative z-10 animate-pulse"
+                className="text-accent-a relative z-10 animate-pulse"
               />
             </div>
             <div className="text-center">
-              <h2 className="text-xl font-bold mb-2">
+              <h2 className="text-xl font-semibold mb-2">
                 Generating briefing...
               </h2>
-              <p className="text-sm text-cream-dim">
+              <p className="text-sm text-ink-3">
                 Scanning drops, extracting what matters to you.
               </p>
             </div>
             <div className="w-56 h-2 glass-subtle rounded-full overflow-hidden">
               <motion.div
-                className="h-full bg-gradient-to-r from-orange to-gold rounded-full"
+                className="h-full bg-gradient-to-r from-accent-a to-accent-c rounded-full"
                 style={{ width: `${progress}%` }}
                 transition={{ duration: 0.3 }}
               />
@@ -183,77 +217,110 @@ export function KickoffView() {
             key="ready"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-5"
+            className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4 items-start"
           >
-            <div className="glass-card rounded-2xl p-5 !border-gold/12">
-              <div className="flex items-center justify-between mb-5">
-                <div>
-                  <h3 className="text-base font-bold gradient-text-gold">
-                    Your Kickoff is ready
-                  </h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Clock size={11} className="text-cream-muted" />
-                    <p className="text-xs text-cream-dim font-mono tabular-nums">
-                      {Math.ceil(briefingItems.length * 15 / 60)}:{String((briefingItems.length * 15) % 60).padStart(2, "0")} · Covers May 1–3
-                    </p>
-                  </div>
-                </div>
+            <div className="glass rounded-[20px] p-[clamp(22px,3vw,36px)]">
+              <div className="inline-flex items-center gap-2 text-xs text-ink-3 uppercase tracking-[0.12em]">
+                <span className="w-2 h-2 rounded-full bg-accent-a shadow-[0_0_12px_var(--color-accent-a)]" />
+                Today&apos;s Kickoff · 9:00 AM
+              </div>
+              <h1 className="text-[clamp(34px,5.4vw,64px)] leading-[1.04] tracking-[-0.035em] font-semibold mt-2 mb-3.5 text-balance">
+                Good morning,<br />
+                <span className="gradient-text">here&apos;s the room.</span>
+              </h1>
+              <p className="text-ink-2 text-[clamp(14px,1.2vw,16px)] max-w-[60ch] leading-relaxed mb-5">
+                A 90-second briefing, stitched from {briefingItems.length} drops by your team. Generated 3 minutes ago.
+              </p>
+
+              <div className="flex items-center gap-4 p-4.5 border border-line rounded-[14px] bg-gradient-to-b from-white/[0.04] to-white/[0.01] max-[540px]:flex-col max-[540px]:items-stretch max-[540px]:gap-3">
                 <button
                   onClick={togglePlay}
-                  className="w-14 h-14 bg-gradient-to-br from-gold to-orange rounded-full flex items-center justify-center shadow-lg shadow-gold/25 hover:shadow-xl hover:shadow-gold/30 transition-all duration-200 active:scale-95"
+                  className="w-[60px] h-[60px] rounded-full shrink-0 border-0 cursor-pointer text-[#0a0a14] bg-gradient-to-br from-accent-a to-accent-b grid place-items-center shadow-[0_14px_40px_-10px_rgba(167,139,250,0.8)] max-[540px]:w-[52px] max-[540px]:h-[52px] max-[540px]:self-center"
                 >
-                  {playing ? (
-                    <Pause size={22} className="text-ember" />
-                  ) : (
-                    <Play size={22} className="text-ember ml-0.5" />
-                  )}
+                  {playing ? <Pause size={22} /> : <Play size={22} className="ml-0.5" />}
+                </button>
+                <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                  <div className="flex items-center gap-[2px] h-12">
+                    {waveData.map((v, i) => {
+                      const past = (i / 80) * total < pos;
+                      return (
+                        <span
+                          key={i}
+                          className="flex-1 min-w-[2px] rounded-[1.5px] transition-colors duration-200"
+                          style={{
+                            height: `${v * 100}%`,
+                            background: past ? "#A78BFA" : "rgba(255,255,255,0.12)",
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="flex justify-between font-mono text-[11px] text-ink-3 tabular-nums">
+                    <span>{fmt(pos)}</span>
+                    <span>{fmt(total)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 flex-wrap mt-4.5">
+                <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-line bg-glass-bg text-ink-2 text-[13px] font-medium hover:text-ink hover:border-line-2 transition-all">
+                  1.0×
+                </button>
+                <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-line bg-glass-bg text-ink-2 text-[13px] font-medium hover:text-ink hover:border-line-2 transition-all">
+                  Transcript
+                </button>
+                <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-line bg-glass-bg text-ink-2 text-[13px] font-medium hover:text-ink hover:border-line-2 transition-all">
+                  Share
+                </button>
+                <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-br from-accent-a to-accent-b text-[#0a0a14] text-[13px] font-semibold shadow-[0_12px_30px_-10px_rgba(167,139,250,0.6)] hover:-translate-y-0.5 transition-all">
+                  Send to Slack <ArrowRight size={14} />
                 </button>
               </div>
 
-              {playing && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  className="flex items-end gap-[2px] h-10 w-full mb-3"
-                >
-                  {Array.from({ length: 60 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 bg-gradient-to-t from-gold to-orange rounded-full waveform-bar"
-                      style={{
-                        animationDelay: `${i * 0.03}s`,
-                        animationDuration: `${0.4 + Math.random() * 0.6}s`,
-                      }}
-                    />
-                  ))}
-                </motion.div>
-              )}
-
               {!audioUrl && (
-                <p className="text-[10px] text-cream-muted mt-2">
+                <p className="text-[10px] text-ink-4 mt-3">
                   Audio generation available when ElevenLabs is connected
                 </p>
               )}
             </div>
 
-            <div className="space-y-1">
-              <h3 className="text-[11px] text-cream-muted uppercase tracking-[0.2em] font-semibold mb-4 px-1">
-                Briefing Outline
-              </h3>
-              {briefingItems.map((item, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.08 }}
-                  className="flex gap-4 py-3.5 px-3 rounded-xl hover:bg-white/[0.015] transition-all duration-200 group border border-transparent hover:border-white/[0.03]"
-                >
-                  <span className="text-[11px] font-mono text-cream-muted w-8 shrink-0 tabular-nums pt-0.5 group-hover:text-orange transition-colors">
-                    {formatTimestamp(i)}
-                  </span>
-                  <p className="text-sm text-cream/60 leading-relaxed group-hover:text-cream/80 transition-colors">{item}</p>
-                </motion.div>
-              ))}
+            <div className="grid gap-4">
+              <div className="glass rounded-[20px] p-[clamp(18px,2.4vw,28px)]">
+                <div className="text-ink-3 text-xs tracking-[0.06em] uppercase font-medium">Chapters</div>
+                <ul className="grid gap-1.5 mt-3.5">
+                  {CHAPTERS.map((c, i) => {
+                    const active = pos >= c.t && (i === CHAPTERS.length - 1 || pos < CHAPTERS[i + 1].t);
+                    return (
+                      <li
+                        key={c.t}
+                        onClick={() => setPos(c.t)}
+                        className={`grid gap-3.5 items-start p-2.5 px-3 rounded-[14px] cursor-pointer border transition-all duration-150 ${
+                          active
+                            ? "bg-accent-a/[0.12] border-accent-a/40"
+                            : "border-transparent hover:bg-glass-bg hover:border-line"
+                        }`}
+                        style={{ gridTemplateColumns: "56px 1fr" }}
+                      >
+                        <span className="font-mono text-xs text-accent-a pt-0.5">{fmt(c.t)}</span>
+                        <div>
+                          <div className="font-semibold text-sm">{c.label}</div>
+                          <div className="text-ink-3 text-xs leading-relaxed mt-0.5">{c.note}</div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+
+              <div className="glass rounded-[20px] p-[clamp(18px,2.4vw,28px)]">
+                <div className="text-ink-3 text-xs tracking-[0.06em] uppercase font-medium">Highlights</div>
+                <ul className="grid gap-2.5 mt-3.5">
+                  <HighlightItem color="#A78BFA" label="Onboarding drop-off down" bold="18%" />
+                  <HighlightItem color="#06B6D4" label="Latency p95" bold="220 → 58ms" />
+                  <HighlightItem color="#FF6B6B" label="" bold="1 blocker needs review" />
+                  <HighlightItem color="#7C3AED" label="Sentiment" bold="+8% wow" />
+                </ul>
+              </div>
             </div>
           </motion.div>
         )}
