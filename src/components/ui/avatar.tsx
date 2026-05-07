@@ -13,26 +13,27 @@ export function Avatar({
     .join("")
     .toUpperCase();
 
-  const colors = [
-    "bg-coral",
-    "bg-mint",
-    "bg-purple-500",
-    "bg-amber-500",
-    "bg-blue-500",
+  const gradients = [
+    "from-orange to-[#FDBA74]",
+    "from-gold to-[#FDE68A]",
+    "from-rose to-[#FB7185]",
+    "from-amber-600 to-[#F59E0B]",
+    "from-orange-600 to-[#EA580C]",
+    "from-pink-500 to-[#EC4899]",
   ];
   const colorIndex =
     name.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) %
-    colors.length;
+    gradients.length;
 
   const sizeClasses = {
-    sm: "w-8 h-8 text-xs",
-    md: "w-10 h-10 text-sm",
-    lg: "w-14 h-14 text-lg",
+    sm: "w-8 h-8 text-[10px]",
+    md: "w-10 h-10 text-xs",
+    lg: "w-14 h-14 text-base",
   };
 
   return (
     <div
-      className={`${sizeClasses[size]} ${colors[colorIndex]} rounded-full flex items-center justify-center font-semibold text-white shrink-0`}
+      className={`${sizeClasses[size]} bg-gradient-to-br ${gradients[colorIndex]} rounded-full flex items-center justify-center font-bold text-ember shrink-0 ring-2 ring-white/[0.08]`}
     >
       {initials}
     </div>

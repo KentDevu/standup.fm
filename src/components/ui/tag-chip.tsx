@@ -1,30 +1,35 @@
 "use client";
 
 import { ExtractionType } from "@/types";
+import { Check } from "lucide-react";
 
 const tagConfig: Record<
   ExtractionType,
-  { emoji: string; label: string; classes: string }
+  { icon: string; bg: string; text: string; border: string }
 > = {
   win: {
-    emoji: "🟢",
-    label: "Win",
-    classes: "bg-mint/15 text-mint border-mint/30",
+    icon: "✦",
+    bg: "bg-gold/8",
+    text: "text-gold",
+    border: "border-gold/15",
   },
   blocker: {
-    emoji: "🔴",
-    label: "Blocker",
-    classes: "bg-coral/15 text-coral border-coral/30",
+    icon: "⚡",
+    bg: "bg-rose/8",
+    text: "text-rose",
+    border: "border-rose/15",
   },
   ask: {
-    emoji: "🟡",
-    label: "Ask",
-    classes: "bg-amber-400/15 text-amber-400 border-amber-400/30",
+    icon: "◉",
+    bg: "bg-orange/8",
+    text: "text-orange",
+    border: "border-orange/15",
   },
   decision: {
-    emoji: "🔵",
-    label: "Decision",
-    classes: "bg-blue-400/15 text-blue-400 border-blue-400/30",
+    icon: "◆",
+    bg: "bg-amber-400/8",
+    text: "text-amber-400",
+    border: "border-amber-400/15",
   },
 };
 
@@ -43,20 +48,20 @@ export function TagChip({
 
   return (
     <div
-      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${config.classes} ${resolved ? "opacity-50 line-through" : ""}`}
+      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border backdrop-blur-sm transition-all duration-200 ${config.bg} ${config.text} ${config.border} ${resolved ? "opacity-35" : "hover:brightness-110"}`}
     >
-      <span>{config.emoji}</span>
-      <span className="max-w-[200px] truncate">{content}</span>
+      <span className="text-[10px]">{config.icon}</span>
+      <span className={`max-w-[200px] truncate ${resolved ? "line-through" : ""}`}>{content}</span>
       {(type === "blocker" || type === "ask") && !resolved && onResolve && (
         <button
           onClick={onResolve}
-          className="ml-1 px-2 py-0.5 bg-mint/20 text-mint rounded-full text-[10px] font-bold hover:bg-mint/30 transition-colors"
+          className="ml-1 px-2 py-0.5 bg-gold/12 text-gold rounded-md text-[10px] font-bold hover:bg-gold/20 transition-colors border border-gold/15"
         >
           I got this
         </button>
       )}
       {resolved && (
-        <span className="text-mint text-[10px] font-bold">Resolved</span>
+        <Check size={10} className="text-gold" />
       )}
     </div>
   );

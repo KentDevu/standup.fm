@@ -5,12 +5,14 @@ import { motion } from "framer-motion";
 import {
   AlertTriangle,
   TrendingUp,
-  RefreshCw,
+  TrendingDown,
   Mail,
   CheckCircle,
   Mic,
   Users,
   ShieldAlert,
+  Loader2,
+  Clock,
 } from "lucide-react";
 import { Sparkline } from "@/components/ui/sparkline";
 import { mockPulseMetrics, mockInsights } from "@/lib/mock-data";
@@ -22,6 +24,48 @@ interface PulseStats {
   total_users: number;
   open_blockers: number;
   total_drops_week: number;
+}
+
+function StatCard({
+  icon: Icon,
+  iconColor,
+  iconBg,
+  value,
+  suffix,
+  label,
+  alert,
+  delay,
+}: {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  iconColor: string;
+  iconBg: string;
+  value: number | string;
+  suffix?: string;
+  label: string;
+  alert?: boolean;
+  delay: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay }}
+      className={`glass-card rounded-2xl p-5 flex flex-col items-center gap-3 ${alert ? "!border-rose/12" : ""}`}
+    >
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${iconBg}`}>
+        <Icon size={18} className={iconColor} />
+      </div>
+      <div className="text-center">
+        <span className={`text-3xl font-bold tabular-nums ${alert ? "text-rose" : "text-cream"}`}>
+          {value}
+        </span>
+        {suffix && (
+          <span className="text-sm font-normal text-cream-dim">{suffix}</span>
+        )}
+      </div>
+      <span className="text-[11px] text-cream-dim font-medium">{label}</span>
+    </motion.div>
+  );
 }
 
 export function PulseView() {
@@ -75,116 +119,102 @@ export function PulseView() {
 
   if (loading) {
     return (
-      <div className="pt-16 pb-20 px-4 max-w-lg mx-auto flex flex-col items-center justify-center min-h-[60vh]">
-        <RefreshCw size={28} className="text-coral animate-spin mb-3" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 size={28} className="text-orange animate-spin mb-3" />
         <p className="text-sm text-cream-dim">Loading team pulse...</p>
       </div>
     );
   }
 
   return (
-    <div className="pt-16 pb-20 px-4 max-w-lg mx-auto">
-      <div className="mb-4 flex items-start justify-between">
+    <div className="px-4 md:px-6 lg:px-8 py-6 max-w-5xl mx-auto">
+      <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-lg font-semibold">Team Pulse</h1>
-          <p className="text-xs text-cream-dim mt-1">
+          <h1 className="text-xl md:text-2xl font-bold">Team Pulse</h1>
+          <p className="text-xs md:text-sm text-cream-dim mt-1">
             A mirror for your team, not a manager dashboard.
           </p>
         </div>
         {isMock && (
-          <span className="text-xs text-cream-dim bg-white/5 border border-white/10 rounded-full px-2 py-0.5">
+          <span className="text-[10px] text-cream-muted glass-subtle rounded-full px-2.5 py-1 font-semibold">
             demo data
           </span>
         )}
       </div>
 
-      {/* Today at a glance */}
       {stats && (
-        <div className="grid grid-cols-3 gap-2 mb-5">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-midnight-light rounded-xl p-3 border border-white/5 flex flex-col items-center gap-1"
-          >
-            <Mic size={14} className="text-coral" />
-            <span className="text-xl font-bold text-cream">
-              {stats.drops_today}
-            </span>
-            <span className="text-xs text-cream-dim">drops today</span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="bg-midnight-light rounded-xl p-3 border border-white/5 flex flex-col items-center gap-1"
-          >
-            <Users size={14} className="text-mint" />
-            <span className="text-xl font-bold text-cream">
-              {stats.active_members_today}
-              <span className="text-sm font-normal text-cream-dim">
-                /{stats.total_users}
-              </span>
-            </span>
-            <span className="text-xs text-cream-dim">active today</span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className={`bg-midnight-light rounded-xl p-3 border flex flex-col items-center gap-1 ${
-              stats.open_blockers > 0 ? "border-coral/20" : "border-white/5"
-            }`}
-          >
-            <ShieldAlert
-              size={14}
-              className={
-                stats.open_blockers > 0 ? "text-coral" : "text-cream-dim"
-              }
-            />
-            <span
-              className={`text-xl font-bold ${stats.open_blockers > 0 ? "text-coral" : "text-cream"}`}
-            >
-              {stats.open_blockers}
-            </span>
-            <span className="text-xs text-cream-dim">open blockers</span>
-          </motion.div>
+        <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6">
+          <StatCard
+            icon={Mic}
+            iconColor="text-orange"
+            iconBg="bg-orange/8"
+            value={stats.drops_today}
+            label="Drops today"
+            delay={0}
+          />
+          <StatCard
+            icon={Users}
+            iconColor="text-gold"
+            iconBg="bg-gold/8"
+            value={stats.active_members_today}
+            suffix={`/${stats.total_users}`}
+            label="Active today"
+            delay={0.05}
+          />
+          <StatCard
+            icon={ShieldAlert}
+            iconColor={stats.open_blockers > 0 ? "text-rose" : "text-cream-muted"}
+            iconBg={stats.open_blockers > 0 ? "bg-rose/8" : "bg-white/[0.03]"}
+            value={stats.open_blockers}
+            label="Open blockers"
+            alert={stats.open_blockers > 0}
+            delay={0.1}
+          />
         </div>
       )}
 
       {insights.length > 0 && (
-        <div className="space-y-2 mb-6">
+        <div className="space-y-2.5 mb-6">
           {insights.map((insight, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, x: -20 }}
+              initial={{ opacity: 0, x: -16 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.15 }}
-              className={`rounded-xl p-3 border flex items-start gap-3 ${
+              transition={{ delay: i * 0.1 }}
+              className={`glass-card rounded-xl p-4 flex items-start gap-3 ${
                 insight.severity === "warning"
-                  ? "bg-amber-400/5 border-amber-400/20"
+                  ? "!border-orange/12"
                   : insight.severity === "critical"
-                    ? "bg-coral/5 border-coral/20"
-                    : "bg-mint/5 border-mint/20"
+                    ? "!border-rose/12"
+                    : "!border-gold/12"
               }`}
             >
-              {insight.severity === "warning" ? (
-                <AlertTriangle
-                  size={16}
-                  className="text-amber-400 shrink-0 mt-0.5"
-                />
-              ) : (
-                <TrendingUp size={16} className="text-mint shrink-0 mt-0.5" />
-              )}
-              <p className="text-sm text-cream/80">{insight.message}</p>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                insight.severity === "warning"
+                  ? "bg-orange/8"
+                  : insight.severity === "critical"
+                    ? "bg-rose/8"
+                    : "bg-gold/8"
+              }`}>
+                {insight.severity === "warning" || insight.severity === "critical" ? (
+                  <AlertTriangle
+                    size={14}
+                    className={insight.severity === "critical" ? "text-rose" : "text-orange"}
+                  />
+                ) : (
+                  <TrendingUp size={14} className="text-gold" />
+                )}
+              </div>
+              <p className="text-sm text-cream/75 leading-relaxed">{insight.message}</p>
             </motion.div>
           ))}
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
         <Sparkline
           data={displayMetrics.blocker_frequency}
-          color="coral"
+          color="rose"
           label="Blockers / Day"
           value={String(
             displayMetrics.blocker_frequency[
@@ -206,7 +236,7 @@ export function PulseView() {
         />
         <Sparkline
           data={displayMetrics.participation}
-          color="mint"
+          color="gold"
           label="Participation"
           value={String(
             displayMetrics.participation[
@@ -218,7 +248,7 @@ export function PulseView() {
         />
         <Sparkline
           data={displayMetrics.sentiment_trend}
-          color="blue"
+          color="orange"
           label="Sentiment"
           value={Math.round(
             displayMetrics.sentiment_trend[
@@ -230,50 +260,68 @@ export function PulseView() {
         />
       </div>
 
-      <div className="mt-6 bg-midnight-light rounded-xl p-4 border border-white/5">
-        <h3 className="text-sm font-medium mb-3">This Week Summary</h3>
-        <div className="space-y-2 text-sm text-cream/70">
-          <p>
-            <span className="text-coral font-medium">
-              {totalBlockers} blockers
-            </span>{" "}
-            raised · {stats?.open_blockers ?? "—"} still open
-          </p>
+      <div className="mt-6 glass-card rounded-2xl p-5">
+        <h3 className="text-sm font-bold mb-4">This Week Summary</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex items-center gap-3.5 p-3.5 rounded-xl bg-white/[0.015] border border-white/[0.03]">
+            <div className="w-9 h-9 rounded-lg bg-rose/8 flex items-center justify-center shrink-0">
+              <ShieldAlert size={15} className="text-rose" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-cream">
+                {totalBlockers} blockers raised
+              </p>
+              <p className="text-xs text-cream-muted">
+                {stats?.open_blockers ?? "—"} still open
+              </p>
+            </div>
+          </div>
           {stats && (
-            <p>
-              <span className="text-mint font-medium">
-                {stats.total_drops_week} standups
-              </span>{" "}
-              recorded this week
-            </p>
+            <div className="flex items-center gap-3.5 p-3.5 rounded-xl bg-white/[0.015] border border-white/[0.03]">
+              <div className="w-9 h-9 rounded-lg bg-gold/8 flex items-center justify-center shrink-0">
+                <Mic size={15} className="text-gold" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-cream">
+                  {stats.total_drops_week} standups
+                </p>
+                <p className="text-xs text-cream-muted">recorded this week</p>
+              </div>
+            </div>
           )}
-          <p>
-            Average resolution time:{" "}
-            <span className="font-mono text-cream">
-              {avgResolution.toFixed(1)} hrs
-            </span>
-          </p>
-          <p>
-            Team mood trending{" "}
-            <span
-              className={
-                sentimentDelta >= 0
-                  ? "text-mint font-medium"
-                  : "text-coral font-medium"
-              }
-            >
-              {sentimentDelta >= 0 ? "up" : "down"} {Math.abs(sentimentDelta)}%
-            </span>{" "}
-            from start of week
-          </p>
+          <div className="flex items-center gap-3.5 p-3.5 rounded-xl bg-white/[0.015] border border-white/[0.03]">
+            <div className="w-9 h-9 rounded-lg bg-orange/8 flex items-center justify-center shrink-0">
+              <Clock size={15} className="text-orange" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-cream">
+                {avgResolution.toFixed(1)} hrs
+              </p>
+              <p className="text-xs text-cream-muted">avg resolution time</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3.5 p-3.5 rounded-xl bg-white/[0.015] border border-white/[0.03]">
+            <div className="w-9 h-9 rounded-lg bg-amber-500/8 flex items-center justify-center shrink-0">
+              {sentimentDelta >= 0 ? (
+                <TrendingUp size={15} className="text-gold" />
+              ) : (
+                <TrendingDown size={15} className="text-rose" />
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-cream">
+                Mood {sentimentDelta >= 0 ? "up" : "down"} {Math.abs(sentimentDelta)}%
+              </p>
+              <p className="text-xs text-cream-muted">from start of week</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Daily Digest */}
-      <div className="mt-4 bg-midnight-light rounded-xl p-4 border border-white/5">
+      <div className="mt-4 glass-card rounded-2xl p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-medium">Daily Digest Email</h3>
+            <h3 className="text-sm font-bold">Daily Digest Email</h3>
             <p className="text-xs text-cream-dim mt-0.5">
               Send today&apos;s standup summary to your inbox.
             </p>
@@ -299,14 +347,14 @@ export function PulseView() {
                 setDigestSending(false);
               }
             }}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors shrink-0 ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 shrink-0 ${
               digestSent
-                ? "bg-mint/20 text-mint border border-mint/30"
-                : "bg-coral/20 text-coral border border-coral/30 hover:bg-coral/30"
+                ? "bg-gold/10 text-gold border border-gold/15"
+                : "bg-gradient-to-r from-orange to-rose text-white shadow-lg shadow-orange/20 hover:shadow-xl hover:shadow-orange/25"
             } disabled:opacity-60`}
           >
             {digestSending ? (
-              <RefreshCw size={13} className="animate-spin" />
+              <Loader2 size={13} className="animate-spin" />
             ) : digestSent ? (
               <CheckCircle size={13} />
             ) : (
@@ -320,7 +368,7 @@ export function PulseView() {
           </motion.button>
         </div>
         {digestError && (
-          <p className="mt-2 text-xs text-coral">{digestError}</p>
+          <p className="mt-2 text-xs text-rose">{digestError}</p>
         )}
       </div>
     </div>
