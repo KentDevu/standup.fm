@@ -2,8 +2,8 @@
 
 export function Sparkline({
   data,
-  color = "orange",
-  height = 52,
+  color = "violet",
+  height = 36,
   label,
   value,
   unit,
@@ -20,78 +20,70 @@ export function Sparkline({
   const max = Math.max(...data);
   const min = Math.min(...data);
   const range = max - min || 1;
+  const w = 100;
 
   const points = data
     .map((d, i) => {
-      const x = data.length > 1 ? (i / (data.length - 1)) * 100 : 50;
-      const y = height - ((d - min) / range) * (height - 6) - 3;
+      const x = data.length > 1 ? (i / (data.length - 1)) * w : 50;
+      const y = height - ((d - min) / range) * (height - 4) - 2;
       return `${x},${y}`;
     })
     .join(" ");
 
-  const areaPoints = `0,${height} ${points} 100,${height}`;
+  const areaPoints = `0,${height} ${points} ${w},${height}`;
 
-  const colorMap: Record<string, { stroke: string; fill: string; dot: string }> = {
-    orange: { stroke: "#FB923C", fill: "url(#grad-orange)", dot: "#FDBA74" },
-    gold: { stroke: "#FBBF24", fill: "url(#grad-gold)", dot: "#FDE68A" },
-    rose: { stroke: "#F43F5E", fill: "url(#grad-rose)", dot: "#FB7185" },
-    amber: { stroke: "#F59E0B", fill: "url(#grad-amber)", dot: "#FCD34D" },
+  const colorMap: Record<string, { stroke: string; gradId: string }> = {
+    violet: { stroke: "#A78BFA", gradId: "grad-violet" },
+    cyan: { stroke: "#06B6D4", gradId: "grad-cyan" },
+    rose: { stroke: "#FF6B6B", gradId: "grad-rose" },
+    amber: { stroke: "#FFD166", gradId: "grad-amber" },
+    purple: { stroke: "#7C3AED", gradId: "grad-purple" },
   };
-  const c = colorMap[color] || colorMap.orange;
+  const c = colorMap[color] || colorMap.violet;
 
-  const lastX = data.length > 1 ? 100 : 50;
-  const lastY = height - ((data[data.length - 1] - min) / range) * (height - 6) - 3;
+  const lastX = data.length > 1 ? w : 50;
+  const lastY = height - ((data[data.length - 1] - min) / range) * (height - 4) - 2;
 
   return (
-    <div className="glass-card rounded-2xl p-5">
-      <div className="flex items-baseline justify-between mb-4">
-        <span className="text-[11px] text-cream-dim font-semibold uppercase tracking-widest">
+    <div className="glass-card rounded-[14px] p-[18px] flex flex-col gap-1.5 min-h-[150px]">
+      <div className="flex items-center justify-between">
+        <span className="text-ink-3 text-xs tracking-[0.06em] uppercase font-medium">
           {label}
         </span>
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-2xl font-bold text-cream tabular-nums">{value}</span>
-          <span className="text-[11px] text-cream-dim">{unit}</span>
-        </div>
       </div>
-      <svg
-        viewBox={`0 0 100 ${height}`}
-        className="w-full"
-        preserveAspectRatio="none"
-      >
-        <defs>
-          <linearGradient id="grad-orange" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#FB923C" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#FB923C" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id="grad-gold" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#FBBF24" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#FBBF24" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id="grad-rose" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#F43F5E" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#F43F5E" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id="grad-amber" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#F59E0B" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <polygon points={areaPoints} fill={c.fill} />
-        <polyline
-          points={points}
-          fill="none"
-          stroke={c.stroke}
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle cx={lastX} cy={lastY} r="3.5" fill={c.dot} className="animate-glow-pulse" />
-      </svg>
-      <div className="flex justify-between mt-2.5">
-        <span className="text-[10px] text-cream-muted">
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-[clamp(28px,3vw,40px)] font-semibold text-ink tabular-nums tracking-tight">{value}</span>
+        <span className="text-xs text-ink-3">{unit}</span>
+      </div>
+      <div className="mt-auto h-9">
+        <svg
+          viewBox={`0 0 ${w} ${height}`}
+          className="w-full h-full block"
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <linearGradient id={c.gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={c.stroke} stopOpacity="0.5" />
+              <stop offset="100%" stopColor={c.stroke} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <polygon points={areaPoints} fill={`url(#${c.gradId})`} />
+          <polyline
+            points={points}
+            fill="none"
+            stroke={c.stroke}
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <circle cx={lastX} cy={lastY} r="3" fill={c.stroke} className="animate-glow-pulse" />
+        </svg>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-[10px] text-ink-4">
           {dayLabels?.[0] ?? "Mon"}
         </span>
-        <span className="text-[10px] text-cream-muted">
+        <span className="text-[10px] text-ink-4">
           {dayLabels?.[dayLabels.length - 1] ?? "Sun"}
         </span>
       </div>

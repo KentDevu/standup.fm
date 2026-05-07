@@ -3,9 +3,11 @@
 export function Avatar({
   name,
   size = "md",
+  color,
 }: {
   name: string;
   size?: "sm" | "md" | "lg";
+  color?: string;
 }) {
   const initials = name
     .split(" ")
@@ -14,12 +16,12 @@ export function Avatar({
     .toUpperCase();
 
   const gradients = [
-    "from-orange to-[#FDBA74]",
-    "from-gold to-[#FDE68A]",
-    "from-rose to-[#FB7185]",
-    "from-amber-600 to-[#F59E0B]",
-    "from-orange-600 to-[#EA580C]",
-    "from-pink-500 to-[#EC4899]",
+    "from-accent-a to-accent-c",
+    "from-accent-b to-accent-c",
+    "from-[#FF6B6B] to-accent-b",
+    "from-[#FFD166] to-accent-a",
+    "from-accent-c to-[#A3E635]",
+    "from-[#FF6B6B] to-[#FFD166]",
   ];
   const colorIndex =
     name.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) %
@@ -31,9 +33,14 @@ export function Avatar({
     lg: "w-14 h-14 text-base",
   };
 
+  const bgStyle = color
+    ? { background: `linear-gradient(135deg, ${color}, var(--color-accent-b))` }
+    : undefined;
+
   return (
     <div
-      className={`${sizeClasses[size]} bg-gradient-to-br ${gradients[colorIndex]} rounded-full flex items-center justify-center font-bold text-ember shrink-0 ring-2 ring-white/[0.08]`}
+      className={`${sizeClasses[size]} ${!color ? `bg-gradient-to-br ${gradients[colorIndex]}` : ""} rounded-full flex items-center justify-center font-bold text-[#0a0a14] shrink-0 ring-2 ring-white/[0.08]`}
+      style={bgStyle}
     >
       {initials}
     </div>
