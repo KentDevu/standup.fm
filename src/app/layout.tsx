@@ -22,7 +22,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#0A0E27",
+  themeColor: "#0F0D0B",
 };
 
 export default function RootLayout({
@@ -32,8 +32,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body className="min-h-dvh bg-midnight text-cream antialiased font-sans">
-        {children}
+      <body className="min-h-dvh bg-ember text-cream antialiased font-sans noise-overlay">
+        <div className="ambient-bg" aria-hidden="true">
+          <div className="ambient-orb ambient-orb-1" />
+          <div className="ambient-orb ambient-orb-2" />
+          <div className="ambient-orb ambient-orb-3" />
+        </div>
+        <div className="relative z-10">
+          {children}
+        </div>
       </body>
     </html>
   );

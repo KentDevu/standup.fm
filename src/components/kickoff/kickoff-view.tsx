@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Headphones, Play, Pause, Sparkles } from "lucide-react";
+import { Headphones, Play, Pause, Sparkles, Clock } from "lucide-react";
 
 const FALLBACK_ITEMS = [
   "While you were away, the team shipped 3 features and resolved 5 blockers.",
@@ -36,7 +36,6 @@ export function KickoffView() {
     }, 80);
 
     try {
-      // Fetch drops first
       let drops = [];
       try {
         const dropsRes = await fetch("/api/drops");
@@ -80,7 +79,6 @@ export function KickoffView() {
       }
       setPlaying(!playing);
     } else {
-      // No real audio — toggle visual waveform animation for demo
       setPlaying(!playing);
       if (!playing) {
         setTimeout(() => setPlaying(false), briefingItems.length * 15 * 1000);
@@ -89,10 +87,10 @@ export function KickoffView() {
   }, [playing, audioUrl, briefingItems.length]);
 
   return (
-    <div className="pt-16 pb-20 px-4 max-w-lg mx-auto">
-      <div className="mb-6">
-        <h1 className="text-lg font-semibold">Kickoff Briefing</h1>
-        <p className="text-xs text-cream-dim mt-1">
+    <div className="px-4 md:px-6 lg:px-8 py-6 max-w-3xl mx-auto">
+      <div className="mb-8">
+        <h1 className="text-xl md:text-2xl font-bold">Kickoff Briefing</h1>
+        <p className="text-xs md:text-sm text-cream-dim mt-1">
           Back from PTO? Get caught up in 90 seconds.
         </p>
       </div>
@@ -113,27 +111,32 @@ export function KickoffView() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex flex-col items-center gap-6 mt-12"
+            className="flex flex-col items-center gap-8 mt-12 md:mt-20"
           >
-            <div className="w-24 h-24 bg-midnight-light rounded-3xl flex items-center justify-center border border-white/5">
-              <Headphones size={40} className="text-cream-dim" />
+            <div className="relative">
+              <div className="w-28 h-28 md:w-32 md:h-32 glass-card rounded-3xl flex items-center justify-center animate-breathe">
+                <Headphones size={48} className="text-cream-muted" />
+              </div>
+              <div className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-gradient-to-br from-orange to-rose flex items-center justify-center text-[10px] font-bold text-white shadow-lg shadow-orange/30 ring-2 ring-ember">
+                12
+              </div>
             </div>
             <div className="text-center">
-              <h2 className="text-base font-medium mb-1">Welcome back!</h2>
+              <h2 className="text-xl md:text-2xl font-bold mb-2">Welcome back!</h2>
               <p className="text-sm text-cream-dim">
                 You missed{" "}
-                <span className="text-coral font-medium">12 drops</span> across
+                <span className="text-orange font-semibold">12 drops</span> across
                 3 days.
               </p>
-              <p className="text-sm text-cream-dim">
+              <p className="text-sm text-cream-dim mt-1">
                 Generate a personalized audio briefing?
               </p>
             </div>
             <button
               onClick={handleGenerate}
-              className="flex items-center gap-2 px-6 py-3 bg-coral rounded-xl text-white font-medium hover:bg-coral-dark transition-colors active:scale-95"
+              className="flex items-center gap-2.5 px-8 py-4 bg-gradient-to-r from-orange via-[#F97316] to-rose rounded-xl text-white font-semibold shadow-xl shadow-orange/25 hover:shadow-2xl hover:shadow-orange/30 transition-all duration-300 active:scale-95"
             >
-              <Sparkles size={16} />
+              <Sparkles size={18} />
               Generate Kickoff
             </button>
           </motion.div>
@@ -145,30 +148,31 @@ export function KickoffView() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex flex-col items-center gap-6 mt-12"
+            className="flex flex-col items-center gap-8 mt-12 md:mt-20"
           >
-            <div className="w-24 h-24 bg-midnight-light rounded-3xl flex items-center justify-center border border-coral/20 relative overflow-hidden">
+            <div className="w-28 h-28 md:w-32 md:h-32 glass-card rounded-3xl flex items-center justify-center relative overflow-hidden !border-orange/15">
               <div
-                className="absolute bottom-0 left-0 right-0 bg-coral/20 transition-all duration-300"
+                className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-orange/20 to-transparent transition-all duration-300"
                 style={{ height: `${progress}%` }}
               />
               <Sparkles
-                size={40}
-                className="text-coral relative z-10 animate-pulse"
+                size={48}
+                className="text-orange relative z-10 animate-pulse"
               />
             </div>
             <div className="text-center">
-              <h2 className="text-base font-medium mb-1">
+              <h2 className="text-xl font-bold mb-2">
                 Generating briefing...
               </h2>
               <p className="text-sm text-cream-dim">
                 Scanning drops, extracting what matters to you.
               </p>
             </div>
-            <div className="w-48 h-1.5 bg-white/5 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-coral rounded-full transition-all duration-300"
+            <div className="w-56 h-2 glass-subtle rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-gradient-to-r from-orange to-gold rounded-full"
                 style={{ width: `${progress}%` }}
+                transition={{ duration: 0.3 }}
               />
             </div>
           </motion.div>
@@ -179,68 +183,75 @@ export function KickoffView() {
             key="ready"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
+            className="space-y-5"
           >
-            <div className="bg-midnight-light rounded-2xl border border-mint/20 p-4">
-              <div className="flex items-center justify-between mb-4">
+            <div className="glass-card rounded-2xl p-5 !border-gold/12">
+              <div className="flex items-center justify-between mb-5">
                 <div>
-                  <h3 className="text-sm font-medium text-mint">
+                  <h3 className="text-base font-bold gradient-text-gold">
                     Your Kickoff is ready
                   </h3>
-                  <p className="text-xs text-cream-dim mt-0.5">
-                    {Math.ceil(briefingItems.length * 15 / 60)}:{String((briefingItems.length * 15) % 60).padStart(2, "0")} · Covers May 1–3
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Clock size={11} className="text-cream-muted" />
+                    <p className="text-xs text-cream-dim font-mono tabular-nums">
+                      {Math.ceil(briefingItems.length * 15 / 60)}:{String((briefingItems.length * 15) % 60).padStart(2, "0")} · Covers May 1–3
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={togglePlay}
-                  className="w-12 h-12 bg-mint rounded-full flex items-center justify-center hover:bg-mint-dark transition-colors active:scale-95"
+                  className="w-14 h-14 bg-gradient-to-br from-gold to-orange rounded-full flex items-center justify-center shadow-lg shadow-gold/25 hover:shadow-xl hover:shadow-gold/30 transition-all duration-200 active:scale-95"
                 >
                   {playing ? (
-                    <Pause size={20} className="text-midnight" />
+                    <Pause size={22} className="text-ember" />
                   ) : (
-                    <Play size={20} className="text-midnight ml-0.5" />
+                    <Play size={22} className="text-ember ml-0.5" />
                   )}
                 </button>
               </div>
 
               {playing && (
-                <div className="flex items-end gap-[2px] h-8 w-full mb-2">
-                  {Array.from({ length: 50 }).map((_, i) => (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  className="flex items-end gap-[2px] h-10 w-full mb-3"
+                >
+                  {Array.from({ length: 60 }).map((_, i) => (
                     <div
                       key={i}
-                      className="flex-1 bg-mint rounded-full waveform-bar"
+                      className="flex-1 bg-gradient-to-t from-gold to-orange rounded-full waveform-bar"
                       style={{
-                        animationDelay: `${i * 0.04}s`,
+                        animationDelay: `${i * 0.03}s`,
                         animationDuration: `${0.4 + Math.random() * 0.6}s`,
                       }}
                     />
                   ))}
-                </div>
+                </motion.div>
               )}
 
               {!audioUrl && (
-                <p className="text-[10px] text-cream-dim mt-2">
+                <p className="text-[10px] text-cream-muted mt-2">
                   Audio generation available when ElevenLabs is connected
                 </p>
               )}
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-xs text-cream-dim uppercase tracking-wider mb-3">
+              <h3 className="text-[11px] text-cream-muted uppercase tracking-[0.2em] font-semibold mb-4 px-1">
                 Briefing Outline
               </h3>
               {briefingItems.map((item, i) => (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, x: -10 }}
+                  initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className="flex gap-3 py-2"
+                  transition={{ delay: i * 0.08 }}
+                  className="flex gap-4 py-3.5 px-3 rounded-xl hover:bg-white/[0.015] transition-all duration-200 group border border-transparent hover:border-white/[0.03]"
                 >
-                  <span className="text-xs font-mono text-cream-dim w-8 shrink-0">
+                  <span className="text-[11px] font-mono text-cream-muted w-8 shrink-0 tabular-nums pt-0.5 group-hover:text-orange transition-colors">
                     {formatTimestamp(i)}
                   </span>
-                  <p className="text-sm text-cream/70">{item}</p>
+                  <p className="text-sm text-cream/60 leading-relaxed group-hover:text-cream/80 transition-colors">{item}</p>
                 </motion.div>
               ))}
             </div>

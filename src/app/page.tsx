@@ -1,16 +1,12 @@
 "use client";
 
 import { Recorder } from "@/components/drop/recorder";
-import { TopBar, BottomNav } from "@/components/layout/nav";
+import { AppShell } from "@/components/layout/nav";
 
 export default function HomePage() {
   return (
-    <>
-      <TopBar />
-      <main>
-        <Recorder />
-      </main>
-      <BottomNav />
-    </>
+    <AppShell>
+      <Recorder />
+    </AppShell>
   );
 }

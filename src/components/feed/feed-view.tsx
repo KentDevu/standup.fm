@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { RefreshCw, Wifi } from "lucide-react";
+import { RefreshCw, Wifi, Mic } from "lucide-react";
+import { motion } from "framer-motion";
 import { Drop } from "@/types";
 import { DropCard } from "./drop-card";
 
@@ -28,13 +29,11 @@ export function FeedView() {
     }
   }, []);
 
-  // Realtime subscription + initial load
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      // No Supabase — defer so setState is not called synchronously in effect body
       const t = setTimeout(() => void fetchDrops(), 0);
       return () => clearTimeout(t);
     }
@@ -45,7 +44,6 @@ export function FeedView() {
       if (!active) return;
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      // Initial load inside the async callback — not synchronous in effect body
       void fetchDrops();
 
       const channel = supabase
@@ -54,7 +52,6 @@ export function FeedView() {
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "drops" },
           () => {
-            // Refetch so we get the full drop with user + extractions joined
             void fetchDrops();
           },
         )
@@ -62,7 +59,6 @@ export function FeedView() {
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "extractions" },
           (payload) => {
-            // Update resolved state in-place without refetch
             setDrops((prev) =>
               prev.map((drop) => ({
                 ...drop,
@@ -112,30 +108,30 @@ export function FeedView() {
   });
 
   return (
-    <div className="pt-16 pb-20 px-4 max-w-lg mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <h1 className="text-lg font-semibold">Team Feed</h1>
+    <div className="px-4 md:px-6 lg:px-8 py-6 max-w-5xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl md:text-2xl font-bold">Team Feed</h1>
           {liveConnected ? (
-            <span className="flex items-center gap-1 text-mint text-xs">
-              <Wifi size={11} />
-              live
+            <span className="flex items-center gap-1.5 text-gold text-xs font-semibold glass-subtle px-2.5 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" />
+              Live
             </span>
           ) : (
             <button
               onClick={fetchDrops}
-              className="text-cream-dim hover:text-cream transition-colors p-1"
+              className="text-cream-dim hover:text-cream transition-colors p-1.5 rounded-lg hover:bg-white/[0.04]"
             >
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
             </button>
           )}
         </div>
-        <div className="flex bg-midnight-lighter rounded-lg p-0.5">
+        <div className="flex glass-subtle rounded-xl p-1">
           <button
             onClick={() => setSort("attention")}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
               sort === "attention"
-                ? "bg-coral text-white"
+                ? "bg-gradient-to-r from-orange to-rose text-white shadow-sm shadow-orange/20"
                 : "text-cream-dim hover:text-cream"
             }`}
           >
@@ -143,9 +139,9 @@ export function FeedView() {
           </button>
           <button
             onClick={() => setSort("latest")}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
               sort === "latest"
-                ? "bg-coral text-white"
+                ? "bg-gradient-to-r from-orange to-rose text-white shadow-sm shadow-orange/20"
                 : "text-cream-dim hover:text-cream"
             }`}
           >
@@ -155,21 +151,29 @@ export function FeedView() {
       </div>
 
       {loading && drops.length === 0 && (
-        <div className="text-center py-20">
-          <div className="text-4xl mb-3 animate-pulse">🎙️</div>
+        <div className="text-center py-24">
+          <motion.div
+            animate={{ rotate: [0, 10, -10, 0] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+            className="text-5xl mb-4 inline-block"
+          >
+            🎙️
+          </motion.div>
           <p className="text-sm text-cream-dim">Loading drops...</p>
         </div>
       )}
 
       {!loading && drops.length === 0 && (
-        <div className="text-center py-20">
-          <div className="text-4xl mb-3">🎙️</div>
-          <h3 className="text-base font-medium mb-1">No drops yet.</h3>
+        <div className="text-center py-24">
+          <div className="w-20 h-20 mx-auto mb-5 rounded-3xl glass-card flex items-center justify-center">
+            <Mic size={32} className="text-cream-muted" />
+          </div>
+          <h3 className="text-lg font-bold mb-1">No drops yet</h3>
           <p className="text-sm text-cream-dim">Be the morning hero.</p>
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {sorted.map((drop, i) => (
           <DropCard key={drop.id} drop={drop} index={i} />
         ))}

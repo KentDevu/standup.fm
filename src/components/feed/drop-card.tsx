@@ -44,7 +44,6 @@ export function DropCard({ drop, index }: { drop: Drop; index: number }) {
     const isMine = reactions.some(
       (r) => r.emoji === emoji && r.user_id === DEMO_USER_ID,
     );
-    // Optimistic update
     if (isMine) {
       setReactions((prev) =>
         prev.filter((r) => !(r.emoji === emoji && r.user_id === DEMO_USER_ID)),
@@ -77,9 +76,7 @@ export function DropCard({ drop, index }: { drop: Drop; index: number }) {
       if (playing) {
         audioRef.current.pause();
       } else {
-        audioRef.current.play().catch(() => {
-          // audio file not available — just animate the waveform for demo
-        });
+        audioRef.current.play().catch(() => {});
       }
     }
     setPlaying(!playing);
@@ -91,12 +88,12 @@ export function DropCard({ drop, index }: { drop: Drop; index: number }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
-      className={`bg-midnight-light rounded-2xl border ${hasUnresolved ? "border-coral/20" : "border-white/5"} overflow-hidden`}
+      transition={{ delay: index * 0.06, duration: 0.4 }}
+      className={`glass-card rounded-2xl overflow-hidden ${hasUnresolved ? "!border-rose/12" : ""}`}
     >
-      <div className="p-4">
+      <div className="p-5">
         {drop.audio_url && (
           <audio
             ref={audioRef}
@@ -107,45 +104,37 @@ export function DropCard({ drop, index }: { drop: Drop; index: number }) {
           />
         )}
 
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 mb-4">
           <Avatar name={drop.user?.name || "?"} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-cream text-sm">
+              <span className="font-semibold text-cream text-sm">
                 {drop.user?.name || "You"}
               </span>
               {hasUnresolved && (
-                <span className="w-2 h-2 rounded-full bg-coral animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-rose animate-pulse shadow-sm shadow-rose/50" />
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-cream-dim">
-              <Clock size={10} />
+            <div className="flex items-center gap-2 text-xs text-cream-dim mt-0.5">
+              <Clock size={10} className="opacity-50" />
               <span>{timeAgo}</span>
               {drop.user?.role && (
                 <>
-                  <span>·</span>
-                  <span>{drop.user.role}</span>
+                  <span className="opacity-20">·</span>
+                  <span className="opacity-60">{drop.user.role}</span>
                 </>
               )}
             </div>
           </div>
           {drop.sentiment_score !== null && (
             <div
-              className="text-xs font-mono px-2 py-1 rounded-full"
-              style={{
-                backgroundColor:
-                  drop.sentiment_score > 0.7
-                    ? "rgba(78,205,196,0.15)"
-                    : drop.sentiment_score > 0.4
-                      ? "rgba(251,191,36,0.15)"
-                      : "rgba(255,107,107,0.15)",
-                color:
-                  drop.sentiment_score > 0.7
-                    ? "#4ECDC4"
-                    : drop.sentiment_score > 0.4
-                      ? "#FBBF24"
-                      : "#FF6B6B",
-              }}
+              className={`text-xs font-mono px-2.5 py-1 rounded-lg glass-subtle border ${
+                drop.sentiment_score > 0.7
+                  ? "text-gold border-gold/12"
+                  : drop.sentiment_score > 0.4
+                    ? "text-orange border-orange/12"
+                    : "text-rose border-rose/12"
+              }`}
             >
               {drop.sentiment_score > 0.7
                 ? "😊"
@@ -157,7 +146,7 @@ export function DropCard({ drop, index }: { drop: Drop; index: number }) {
           )}
         </div>
 
-        <div className="mt-3">
+        <div className="mb-4">
           <Waveform
             duration={drop.duration}
             isPlaying={playing}
@@ -166,7 +155,7 @@ export function DropCard({ drop, index }: { drop: Drop; index: number }) {
         </div>
 
         {drop.extractions && drop.extractions.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 mb-3">
             {drop.extractions.map((ext) => (
               <TagChip
                 key={ext.id}
@@ -179,7 +168,6 @@ export function DropCard({ drop, index }: { drop: Drop; index: number }) {
           </div>
         )}
 
-        {/* @mentions chips — deduplicated across all extractions */}
         {(() => {
           const names = [
             ...new Set(
@@ -188,11 +176,11 @@ export function DropCard({ drop, index }: { drop: Drop; index: number }) {
           ].filter(Boolean);
           if (!names.length) return null;
           return (
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 mb-3">
               {names.map((name) => (
                 <span
                   key={name}
-                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-mint/10 text-mint border border-mint/20"
+                  className="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium bg-orange/6 text-orange border border-orange/10"
                 >
                   @{name}
                 </span>
@@ -203,7 +191,7 @@ export function DropCard({ drop, index }: { drop: Drop; index: number }) {
 
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 mt-3 text-xs text-cream-dim hover:text-cream transition-colors"
+          className="flex items-center gap-1.5 text-xs text-cream-muted hover:text-cream-dim transition-colors py-1"
         >
           {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           {expanded ? "Hide transcript" : "Show transcript"}
@@ -215,15 +203,14 @@ export function DropCard({ drop, index }: { drop: Drop; index: number }) {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="mt-3 text-sm text-cream/70 leading-relaxed border-l-2 border-coral/30 pl-3"
+              className="mt-3 text-sm text-cream/50 leading-relaxed border-l-2 border-orange/15 pl-3"
             >
               {drop.transcript}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Reactions row */}
-        <div className="mt-3 flex items-center gap-1 flex-wrap">
+        <div className="mt-3 pt-3 border-t border-white/[0.03] flex items-center gap-1.5 flex-wrap">
           {REACTION_EMOJIS.map((emoji) => {
             const count = reactions.filter((r) => r.emoji === emoji).length;
             const isMine = reactions.some(
@@ -234,14 +221,14 @@ export function DropCard({ drop, index }: { drop: Drop; index: number }) {
                 key={emoji}
                 whileTap={{ scale: 0.85 }}
                 onClick={() => handleReact(emoji)}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs transition-all duration-200 ${
                   isMine
-                    ? "bg-coral/20 border border-coral/40 text-cream"
-                    : "bg-white/5 border border-white/10 text-cream-dim hover:bg-white/10 hover:text-cream"
+                    ? "bg-orange/12 border border-orange/20 text-cream"
+                    : "bg-white/[0.02] border border-white/[0.04] text-cream-dim hover:bg-white/[0.05] hover:text-cream"
                 }`}
               >
                 <span>{emoji}</span>
-                {count > 0 && <span className="font-mono">{count}</span>}
+                {count > 0 && <span className="font-mono text-[11px] tabular-nums">{count}</span>}
               </motion.button>
             );
           })}
